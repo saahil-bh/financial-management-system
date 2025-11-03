@@ -1,0 +1,63 @@
+-- user table 
+CREATE TABLE Users(
+    u_id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(150) UNIQUE NOT NULL,
+    role VARCHAR(10) CHECK (role IN ('Admin', 'User')) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL
+);
+
+-- quotation table 
+CREATE TABLE Quotations(
+	q_id SERIAL PRIMARY KEY,
+	user_id INT REFERENCES Users(u_id) ON DELETE CASCADE, -- to make sure all quotations by THE user are all deleted.
+	status VARCHAR(30) NOT NULL DEFAULT 'Draft' CHECK (status IN ('Draft', 'Submitted', 'Approved', 'Rejected')) ,
+	total NUMERIC(12,2) NOT NULL, -- make sure 0.1 + 0.2 = 0.30 not 0.300000,
+	tax NUMERIC(6,2) DEFAULT 0.00,
+	created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL, 
+	updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+);
+
+-- Invoice
+CREATE TABLE Invoices(
+	i_id SERIAL PRIMARY KEY,
+	q_id INT NULL REFERENCES Quotations(q_id) ON DELETE SET NULL, -- not cascade as to keep finance his 
+	status VARCHAR(30) NOT NULL DEFAULT 'Draft' CHECK (status IN ('Draft', 'Submitted', 'Approved', 'Rejected', 'Paid')),
+	total NUMERIC(12,2) NOT NULL,
+	due_date DATE NOT NULL,
+	created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL, 
+	updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+);
+
+-- Receipt
+CREATE TABLE Receipts(
+	r_id SERIAL PRIMARY KEY,
+	i_id INT NULL REFERENCES Invoices(i_id) ON DELETE SET NULL, 
+	payment_date DATE NOT NULL,
+	amount NUMERIC(12,2) NOT NULL,
+	status VARCHAR(20) DEFAULT 'Pending' CHECK (status IN ('Pending', 'Confirmed', 'Rejected')) NOT NULL
+);
+
+-- Notification
+CREATE TABLE Notifications(
+	n_id SERIAL PRIMARY KEY,
+	u_id INT REFERENCES Users(u_id) ON DELETE CASCADE, 
+	message TEXT NOT NULL,
+	type VARCHAR(30) NOT NULL CHECK (type IN ('LINE', 'Email')),
+	created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+);
+
+-- Logs
+CREATE TABLE Logs(
+	l_id SERIAL PRIMARY KEY,
+	action VARCHAR(100) NOT NULL,
+	actor_id INT NULL REFERENCES Users(u_id) ON DELETE SET NULL,
+	document_id INT,
+	timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+);
+
+CREATE INDEX idx_user_role ON users(role);
+CREATE INDEX idx_quotation_status ON quotations(status);
+CREATE INDEX idx_invoice_status ON invoices(status);
+CREATE INDEX idx_log_actor ON logs(actor_id);
+
