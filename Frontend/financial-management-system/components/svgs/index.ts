@@ -1,0 +1,1 @@
+export { default as MyFinance } from './MyFinance.svg'
