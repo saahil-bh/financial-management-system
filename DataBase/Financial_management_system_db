@@ -3,8 +3,9 @@ CREATE TABLE Users (
     u_id uuid PRIMARY KEY NOT NULL,
     name VARCHAR(100) NOT NULL,
     email VARCHAR(150) UNIQUE NOT NULL,
-    role VARCHAR(10) CHECK (role IN ('Admin', 'User')) NOT NULL
-    password_hash TEXT NOT NULL
+    role VARCHAR(10) CHECK (role IN ('Admin', 'User')) NOT NULL,
+    password_hash TEXT NOT NULL,
+	address TEXT
 );
 
 -- quotation table 
@@ -37,7 +38,8 @@ CREATE TABLE Receipts(
 	payment_date DATE NOT NULL,
 	amount NUMERIC(12,2) NOT NULL,
 	status VARCHAR(20) DEFAULT 'Pending' CHECK (status IN ('Pending', 'Confirmed', 'Rejected')) NOT NULL,
-	u_id uuid REFERENCES Users(u_id) ON DELETE SET NULL
+	u_id uuid REFERENCES Users(u_id) ON DELETE SET NULL,
+	payment_method VARCHAR(20) CHECK (payment_method IN ('Bank Transfer', 'Cash', 'Credit Card'))
 );
 
 -- Notification
@@ -56,6 +58,42 @@ CREATE TABLE Logs(
 	actor_id uuid NULL REFERENCES Users(u_id) ON DELETE SET NULL,
 	document_id INT,
 	timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+);
+
+CREATE TABLE CompanyProfile (
+  company_id SERIAL PRIMARY KEY,
+  company_name VARCHAR(255),
+  company_address TEXT,
+  tax_id VARCHAR(50),
+  phone VARCHAR(50),
+  email VARCHAR(100)
+);
+
+CREATE TABLE CompanyBankAccount (
+  bank_id SERIAL PRIMARY KEY,
+  bank_name VARCHAR(100),
+  account_name VARCHAR(100),
+  account_number VARCHAR(50),
+  swift_code VARCHAR(20),
+  is_default BOOLEAN DEFAULT TRUE
+);
+
+CREATE TABLE QuotationItems (
+  item_id SERIAL PRIMARY KEY,
+  q_id INT REFERENCES Quotations(q_id) ON DELETE CASCADE,
+  description TEXT NOT NULL,
+  quantity INT NOT NULL,
+  unit_price NUMERIC(12,2) NOT NULL,
+  total NUMERIC(12,2) GENERATED ALWAYS AS (quantity * unit_price) STORED
+);
+
+CREATE TABLE InvoiceItems (
+  inv_item_id SERIAL PRIMARY KEY,
+  i_id INT REFERENCES Invoices(i_id) ON DELETE CASCADE,
+  description TEXT NOT NULL,
+  quantity INT NOT NULL,
+  unit_price NUMERIC(12,2) NOT NULL,
+  total NUMERIC(12,2) GENERATED ALWAYS AS (quantity * unit_price) STORED
 );
 
 CREATE INDEX idx_user_role ON users(role);
