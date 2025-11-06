@@ -11,7 +11,7 @@ CREATE TABLE Users (
 -- quotation table 
 CREATE TABLE Quotations(
 	q_id SERIAL PRIMARY KEY,
-	user_id uuid REFERENCES Users(u_id) ON DELETE CASCADE, -- to make sure all quotations by THE user are all deleted.
+	u_id uuid REFERENCES Users(u_id) ON DELETE CASCADE, -- to make sure all quotations by THE user are all deleted.
 	status VARCHAR(30) NOT NULL DEFAULT 'Draft' CHECK (status IN ('Draft', 'Submitted', 'Approved', 'Rejected')) ,
 	total NUMERIC(12,2) NOT NULL, -- make sure 0.1 + 0.2 = 0.30 not 0.300000,
 	tax NUMERIC(6,2) DEFAULT 0.00,
@@ -113,7 +113,7 @@ BEGIN
   -- On INSERT (Create)
   IF (TG_OP = 'INSERT') THEN
     doc_id := NEW.q_id;
-    actor_id_from_row := NEW.user_id; -- Get user from the new row
+    actor_id_from_row := NEW.u_id; -- Get user from the new row
     log_action := 'Quotation ' || doc_id || ' created with status ' || NEW.status;
 
     INSERT INTO logs (action, actor_id, document_id)
@@ -124,7 +124,7 @@ BEGIN
   -- On UPDATE (Status change, etc.)
   ELSIF (TG_OP = 'UPDATE') THEN
     doc_id := NEW.q_id;
-    actor_id_from_row := NEW.user_id; -- Get user from the updated row
+    actor_id_from_row := NEW.u_id; -- Get user from the updated row
 
     -- This is the key part from your spec!
     -- Only log if the status has *actually changed*.
@@ -140,7 +140,7 @@ BEGIN
   -- On DELETE
   ELSIF (TG_OP = 'DELETE') THEN
     doc_id := OLD.q_id;
-    actor_id_from_row := OLD.user_id; -- Get user from the old row being deleted
+    actor_id_from_row := OLD.u_id; -- Get user from the old row being deleted
     log_action := 'Quotation ' || doc_id || ' deleted.';
     
     INSERT INTO logs (action, actor_id, document_id)
