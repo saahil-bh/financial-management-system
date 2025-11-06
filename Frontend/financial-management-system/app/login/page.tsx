@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import * as React from "react";
+import { redirect } from "next/navigation";
 
 export default function LoginPage() {
   const [id, setId] = React.useState("");
@@ -59,6 +60,8 @@ export default function LoginPage() {
         <Button
           type="submit"
           className="w-full text-lg font-semibold"
+          // TEMPORARY
+          onClick={() => redirect("/quotations")}
         >
           Log In
         </Button>
