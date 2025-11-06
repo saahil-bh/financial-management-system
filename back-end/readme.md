@@ -1,20 +1,13 @@
-# Create a virtual environment
 ```bash
+# 1. Create a virtual environment
 python -m venv venv
-```
 
-# Activate the environment
-** On macOS/Linux **
-```bash
+# 2. Activate the environment
+# On macOS/Linux:
 source venv/bin/activate
-```
+# On Windows (Command Prompt):
+# venv\Scripts\activate.bat
 
-** On Windows (Command Prompt) **
-```bash
-venv\Scripts\activate.bat
-```
-
-** Install **
-```bash
+# 3. Install dependencies
 pip install fastapi uvicorn "python-jose[cryptography]" python-multipart "passlib[bcrypt]" sqlalchemy psycopg2-binary pwdlib
 ```
