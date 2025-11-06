@@ -9,5 +9,5 @@ source venv/bin/activate
 venv\Scripts\activate.bat
 
 # 3. Install dependencies
-pip install fastapi uvicorn "python-jose[cryptography]" python-multipart "passlib[bcrypt]" sqlalchemy psycopg2-binary pwdlib
+pip install fastapi uvicorn "python-jose[cryptography]" python-multipart "passlib[bcrypt]" sqlalchemy psycopg2-binary "pwdlib[argon2]"
 ```
