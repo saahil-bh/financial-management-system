@@ -1,5 +1,6 @@
 from datetime import timedelta, datetime, timezone
 from typing import Annotated
+import uuid
 from fastapi import APIRouter, Depends, HTTPException 
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -29,13 +30,14 @@ class CreateUser(BaseModel):
    email: str
    role: str
    password: str
+   address: str | None = None # Added address field
 
 class Token(BaseModel):
   access_token: str
   token_type: str
 
 class TokenData(BaseModel):
-   u_id: int
+   u_id: uuid.UUID
 
 def get_password_hash(password):
     return password_hash.hash(password)
@@ -52,6 +54,7 @@ async def create_user(db: db_dependency, user_request:CreateUser):
     email = user_request.email,
     role = user_request.role,
     password_hash = hashed_password,
+    address = user_request.address # Added address
     )
   
   try:
@@ -88,8 +91,8 @@ def authenticate_user(email: str, password: str, db):
     
     return user
 
-def create_access_token(email: str, u_id: int, expires_delta: timedelta):
-  encode = {'sub': email, 'id': u_id}
+def create_access_token(email: str, u_id: uuid.UUID, expires_delta: timedelta): # change int to uuid
+  encode = {'sub': email, 'id': str(u_id)} # cast uuid to str for JWT payload
 
   expires = datetime.now(timezone.utc) + expires_delta
 
@@ -106,10 +109,15 @@ def get_current_user(token: Annotated[str, Depends(ouath2_bearer)], db: db_depen
   try:
     payload = jwt.decode(token, SECRET_KEY, algorithms=[AlGORITHM]) 
     
-    user_id: int = payload.get('id') 
+    user_id: str = payload.get('id') # Get ID as string
     
     if user_id is None:
       raise credentials_exception
+    
+    try: # Convert string back to UUID
+        user_id = uuid.UUID(user_id)
+    except ValueError:
+        raise credentials_exception
   
   except JWTError: 
         raise credentials_exception
