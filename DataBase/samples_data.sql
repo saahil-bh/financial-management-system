@@ -1,88 +1,102 @@
--- Create an Admin user
+-- =========================================================
+-- 1. USERS
+-- =========================================================
 INSERT INTO Users (u_id, name, email, role, password_hash, address)
-VALUES ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'Alice Admin', 'alice@example.com', 'Admin', 'bcrypt_hashed_password_placeholder_admin', '123 Admin St, Capital City');
+VALUES 
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'Alice Admin', 'alice@example.com', 'Admin', 'bcrypt_hashed_password_placeholder_admin', '123 Admin St, Capital City'),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12', 'Bob User', 'bob@example.com', 'User', 'bcrypt_hashed_password_placeholder_user', '456 User Ave, Townsville');
 
--- Create a standard User
-INSERT INTO Users (u_id, name, email, role, password_hash, address)
-VALUES ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12', 'Bob User', 'bob@example.com', 'User', 'bcrypt_hashed_password_placeholder_user', '456 User Ave, Townsville');
-
--- Create a company profile
+-- =========================================================
+-- 2. COMPANY PROFILE & BANK ACCOUNTS
+-- =========================================================
 INSERT INTO CompanyProfile (company_name, company_address, tax_id, phone, email)
 VALUES ('Apex Solutions Inc.', '789 Business Rd, Suite 100, Metropolis', '12-3456789', '+1-555-0100', 'contact@apexsolutions.com');
 
--- Add a default bank account for the company
 INSERT INTO CompanyBankAccount (bank_name, account_name, account_number, swift_code, is_default)
-VALUES ('Metropolis City Bank', 'Apex Solutions Inc. - Operations', '9876543210', 'MCBKSGXX', TRUE);
+VALUES 
+('Metropolis City Bank', 'Apex Solutions Inc. - Operations', '9876543210', 'MCBKSGXX', TRUE),
+('Global Commerce Bank', 'Apex Solutions Inc. - International', '1122334455', 'GCBKUS33', FALSE);
 
--- Add a second bank account
-INSERT INTO CompanyBankAccount (bank_name, account_name, account_number, swift_code, is_default)
-VALUES ('Global Commerce Bank', 'Apex Solutions Inc. - International', '1122334455', 'GCBKUS33', FALSE);
+-- =========================================================
+-- 3. QUOTATIONS + ITEMS
+-- =========================================================
 
--- 1. An 'Approved' quotation, created by Bob User
-INSERT INTO Quotations (user_id, status, total, tax, created_at, updated_at)
-VALUES ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12', 'Approved', 1500.00, 105.00, NOW() - INTERVAL '3 days', NOW() - INTERVAL '2 days');
--- Assuming this INSERT generates q_id = 1
+-- 3.1 Approved quotation
+WITH q1 AS (
+  INSERT INTO Quotations (u_id, status, total, tax, created_at, updated_at)
+  VALUES ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12', 'Approved', 1500.00, 105.00, NOW() - INTERVAL '3 days', NOW() - INTERVAL '2 days')
+  RETURNING q_id
+)
+INSERT INTO QuotationItems (q_id, description, quantity, unit_price)
+SELECT q_id, 'Enterprise Software License (Annual)', 1, 1000.00 FROM q1
+UNION ALL
+SELECT q_id, 'Onboarding & Training Services', 5, 100.00 FROM q1;
 
--- 2. A 'Draft' quotation, also by Bob User
-INSERT INTO Quotations (user_id, status, total, tax)
-VALUES ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12', 'Draft', 350.00, 24.50);
--- Assuming this INSERT generates q_id = 2
+-- 3.2 Draft quotation
+WITH q2 AS (
+  INSERT INTO Quotations (u_id, status, total, tax)
+  VALUES ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12', 'Draft', 350.00, 24.50)
+  RETURNING q_id
+)
+INSERT INTO QuotationItems (q_id, description, quantity, unit_price)
+SELECT q_id, 'Monthly Support Retainer', 1, 350.00 FROM q2;
 
--- 3. A 'Rejected' quotation
-INSERT INTO Quotations (user_id, status, total, tax, created_at, updated_at)
+-- 3.3 Rejected quotation (no items)
+INSERT INTO Quotations (u_id, status, total, tax, created_at, updated_at)
 VALUES ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12', 'Rejected', 80.00, 5.60, NOW() - INTERVAL '1 day', NOW());
--- Assuming this INSERT generates q_id = 3
 
--- Now, add items for the 'Approved' quotation (q_id = 1)
-INSERT INTO QuotationItems (q_id, description, quantity, unit_price)
-VALUES (1, 'Enterprise Software License (Annual)', 1, 1000.00);
-INSERT INTO QuotationItems (q_id, description, quantity, unit_price)
-VALUES (1, 'Onboarding & Training Services', 5, 100.00);
+-- =========================================================
+-- 4. INVOICES + ITEMS
+-- =========================================================
 
--- Add items for the 'Draft' quotation (q_id = 2)
-INSERT INTO QuotationItems (q_id, description, quantity, unit_price)
-VALUES (2, 'Monthly Support Retainer', 1, 350.00);
-
--- 1. A 'Paid' invoice generated from the approved quotation (q_id = 1)
-INSERT INTO Invoices (q_id, status, total, due_date, u_id, created_at, updated_at)
-VALUES (1, 'Paid', 1605.00, NOW() + INTERVAL '15 days', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12', NOW() - INTERVAL '1 day', NOW());
--- Assuming this INSERT generates i_id = 1
--- Total (1605.00) = Quotation total (1500.00) + Quotation tax (105.00)
-
--- 2. A 'Submitted' invoice created directly (no quotation)
-INSERT INTO Invoices (q_id, status, total, due_date, u_id)
-VALUES (NULL, 'Submitted', 450.00, NOW() + INTERVAL '30 days', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12');
--- Assuming this INSERT generates i_id = 2
-
--- Add items for the 'Paid' invoice (i_id = 1)
--- These are often copied from the quotation
+-- 4.1 Invoice generated from Approved quotation (q1)
+WITH inv1 AS (
+  INSERT INTO Invoices (q_id, status, total, due_date, u_id, created_at, updated_at)
+  SELECT q_id, 'Paid', 1605.00, NOW() + INTERVAL '15 days', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12', NOW() - INTERVAL '1 day', NOW()
+  FROM Quotations WHERE status = 'Approved'
+  RETURNING i_id
+)
 INSERT INTO InvoiceItems (i_id, description, quantity, unit_price)
-VALUES (1, 'Enterprise Software License (Annual)', 1, 1000.00);
+SELECT i_id, 'Enterprise Software License (Annual)', 1, 1000.00 FROM inv1
+UNION ALL
+SELECT i_id, 'Onboarding & Training Services', 5, 100.00 FROM inv1;
+
+-- 4.2 Direct invoice (no quotation)
+WITH inv2 AS (
+  INSERT INTO Invoices (q_id, status, total, due_date, u_id)
+  VALUES (NULL, 'Submitted', 450.00, NOW() + INTERVAL '30 days', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12')
+  RETURNING i_id
+)
 INSERT INTO InvoiceItems (i_id, description, quantity, unit_price)
-VALUES (1, 'Onboarding & Training Services', 5, 100.00);
+SELECT i_id, 'Ad-hoc Consulting Services', 3, 150.00 FROM inv2;
 
--- Add items for the 'Submitted' direct invoice (i_id = 2)
-INSERT INTO InvoiceItems (i_id, description, quantity, unit_price)
-VALUES (2, 'Ad-hoc Consulting Services', 3, 150.00);
+-- =========================================================
+-- 5. RECEIPTS
+-- =========================================================
 
--- 1. A 'Confirmed' receipt for the 'Paid' invoice (i_id = 1)
-INSERT INTO Receipts (i_id, payment_date, amount, status, u_id, payment_method)
-VALUES (1, NOW(), 1605.00, 'Confirmed', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12', 'Bank Transfer');
--- Assuming this INSERT generates r_id = 1
+-- Receipt for Paid invoice
+WITH r1 AS (
+  INSERT INTO Receipts (i_id, payment_date, amount, status, u_id, payment_method)
+  SELECT i_id, NOW(), 1605.00, 'Approved', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12', 'Bank Transfer'
+  FROM Invoices WHERE status = 'Paid'
+  RETURNING r_id
+)
+SELECT * FROM r1;
 
--- 2. A 'Pending' receipt for the 'Submitted' invoice (i_id = 2), perhaps a deposit
-INSERT INTO Receipts (i_id, payment_date, amount, status, u_id, payment_method)
-VALUES (2, NOW(), 200.00, 'Pending', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12', 'Credit Card');
--- Assuming this INSERT generates r_id = 2
+-- Pending receipt (deposit) for Submitted invoice
+WITH r2 AS (
+  INSERT INTO Receipts (i_id, payment_date, amount, status, u_id, payment_method)
+  SELECT i_id, NOW(), 200.00, 'Pending', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12', 'Credit Card'
+  FROM Invoices WHERE status = 'Submitted'
+  RETURNING r_id
+)
+SELECT * FROM r2;
 
--- 1. Notification to Admin (Alice) that an invoice needs approval
+-- =========================================================
+-- 6. NOTIFICATIONS
+-- =========================================================
 INSERT INTO Notifications (u_id, message, type)
-VALUES ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'Invoice I-2 (Total: 450.00) has been submitted by Bob User for approval.', 'LINE');
-
--- 2. Notification to User (Bob) that his quotation was approved
-INSERT INTO Notifications (u_id, message, type)
-VALUES ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12', 'Your Quotation Q-1 (Total: 1500.00) has been approved by Admin.', 'Email');
-
--- 3. Notification to User (Bob) that his receipt was confirmed
-INSERT INTO Notifications (u_id, message, type)
-VALUES ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12', 'Your payment of 1605.00 for Invoice I-1 has been confirmed.', 'Email');
+VALUES 
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'Invoice (Total: 450.00) has been submitted by Bob User for approval.', 'LINE'),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12', 'Your Quotation (Total: 1500.00) has been approved by Admin.', 'Email'),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12', 'Your payment of 1605.00 for your invoice has been confirmed.', 'Email');
