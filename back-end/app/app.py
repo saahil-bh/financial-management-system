@@ -1,5 +1,4 @@
 from fastapi import FastAPI, HTTPException, Depends, status
-from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Annotated
 from fastapi.security import OAuth2PasswordRequestForm
@@ -9,32 +8,20 @@ from .auth import get_current_user,check_user_role
 from .database import engine, SessionLocal, get_db
 from sqlalchemy.orm import Session
 from decimal import Decimal
-from datetime import timedelta
+from datetime import timedelta, date # add date 
+import uuid # import uuid
 
 app = FastAPI()
+app.include_router(auth.router) 
 
-origins = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"], 
-    allow_headers=["*"],
-)
-
-app.include_router(auth.router)
-
-db_model.Base.metadata.create_all(bind=engine)
+# db_model.Base.metadata.create_all(bind=engine)
+db_model.Base.metadata.create_all(bind=engine, checkfirst=True)
 
 DBDependency = Annotated[Session, Depends(get_db)]
 CurrentUser = Annotated[db_model.User, Depends(get_current_user)]
 
 class UserBase(BaseModel):
-    u_id: int
+    u_id: uuid.UUID
     name: str
     email: str
     role: str
@@ -42,7 +29,7 @@ class UserBase(BaseModel):
         from_attributes = True
 
 class QuotationCreate(BaseModel):
-    user_id: int
+    # user_id removed, will be taken from current_user
     total: float
     tax: float 
 
@@ -58,7 +45,7 @@ class QuotationUpdate(BaseModel):
 
 class QuotationBase(BaseModel):
     q_id: int
-    user_id: int
+    user_id: uuid.UUID
     status: str
     total: float
     tax: float
@@ -82,6 +69,7 @@ class InvoiceBase(BaseModel):
     q_id: int
     status: str
     total: float
+    u_id: uuid.UUID | None = None # Added u_id
 
     class Config:
         from_attributes = True
@@ -91,8 +79,12 @@ class InvoiceResponse(InvoiceBase):
 
 # Receipt
 class ReceiptCreate(BaseModel):
-    r_id: int
+    # r_id: int
+    # amount: float
+    i_id: int # Changed from r_id
     amount: float
+    payment_date: date 
+    payment_method: str 
 
     class Config:
         from_attributes = True
@@ -102,6 +94,9 @@ class ReceiptBase(BaseModel):
     i_id: int
     status: str
     amount: float
+    payment_date: date 
+    payment_method: str | None = None 
+    u_id: uuid.UUID | None = None 
 
     class Config:
         from_attributes = True
@@ -123,7 +118,7 @@ def read_users_me(current_user: CurrentUser):
 def create_quotation(quotation: QuotationCreate, db: DBDependency, current_user: Annotated[db_model.User, Depends(check_user_role('User'))]):    
 
     db_quotation = db_model.Quotation(
-        user_id = quotation.user_id,
+        user_id = current_user.u_id, # Set user_id from logged-in user
         total = Decimal(str(quotation.total)),
         tax = Decimal(str(quotation.tax))
     )
@@ -274,14 +269,21 @@ def create_invoice(invoice: InvoiceCreate, db: DBDependency, current_user: Annot
   if not check_qid:
     raise HTTPException(status_code=404, detail=f"Quotation ID:{invoice.q_id} not found.")
   
-  check_approve = db.query(db_model.Quotation).filter(db_model.Quotation.status == "Approved").first()
-
-  if not check_approve: 
-     raise HTTPException(status_code=404, detail=f"Quotation ID:{invoice.q_id} has not been Approved.")
+  # *** LOGICAL ERROR HERE ***
+  # This checks if *ANY* quotation in the database is "Approved",
+  # not if the *specific one* you found (check_qid) is approved.
+  # ---------------------------------------------------------------  
+  #  check_approve = db.query(db_model.Quotation).filter(db_model.Quotation.status == "Approved").first()
+  #if not check_approve: 
+     #raise HTTPException(status_code=404, detail=f"Quotation ID:{invoice.q_id} has not been Approved.")
+  # ---------------------------------------------------------------
+  if check_qid.status != "Approved": #fixed version
+     raise HTTPException(status_code=400, detail=f"Quotation ID:{invoice.q_id} has not been Approved.")
   
   db_invoice = db_model.Invoice(
     q_id = invoice.q_id,
     total = Decimal(str(invoice.total)),
+    u_id = current_user.u_id # Added user_id for trigger
     )
   
   try:
@@ -365,19 +367,30 @@ def get_invoice(invoice_id: int, db: DBDependency):
 
 @app.post("/receipt", response_model=ReceiptResponse, status_code=status.HTTP_201_CREATED)
 def create_receipt(receipt: ReceiptCreate, db: DBDependency, current_user: Annotated[db_model.User, Depends(check_user_role('User'))]):    
+  # Check if the invoice ID from the pydantic model exists
   check_iid = db.query(db_model.Invoice).filter(db_model.Invoice.i_id == receipt.i_id).first()
   
   if not check_iid:
-    raise HTTPException(status_code=404, detail=f"Quotation ID:{receipt.q_id} not found.")
-  
-  check_approve = db.query(db_model.Invoice).filter(db_model.Invoice.status == "Approved").first()
-
-  if not check_approve: 
+    # Fixed error message to use i_id
+    # raise HTTPException(status_code=404, detail=f"Quotation ID:{receipt.q_id} not found.") OLd version
+    raise HTTPException(status_code=404, detail=f"Invoice ID:{receipt.i_id} not found.")
+  # *** LOGICAL ERROR HERE ***
+  # This checks if *ANY* invoice in the database is "Approved".
+  #------------------------------------------------------------------
+  #check_approve = db.query(db_model.Invoice).filter(db_model.Invoice.status == "Approved").first()
+  #if not check_approve: 
+  #   raise HTTPException(status_code=404, detail=f"Invoice ID:{receipt.i_id} has not been Approved.")
+  #------------------------------------------------------------------
+  # corrected version
+  if check_iid.status != "Approved": 
      raise HTTPException(status_code=404, detail=f"Invoice ID:{receipt.i_id} has not been Approved.")
   
   db_receipt = db_model.Receipt(
     i_id = receipt.i_id,
     amount = Decimal(str(receipt.amount)),
+    payment_date = receipt.payment_date, # Added from pydantic model
+    payment_method = receipt.payment_method, # Added from pydantic model
+    u_id = current_user.u_id # Added user_id for trigger
     )
   
   try:
@@ -403,7 +416,7 @@ def receipt_submit(receipt_id: int, db: DBDependency, current_user: Annotated[db
     
     if receipt.status != 'Draft':
       raise HTTPException(status_code=400, detail=f"Receipt cannot be submitted. Current status is '{receipt.status}'.")
-        
+    
     try:
         receipt.status = 'Submitted'
         db.commit()
@@ -417,7 +430,9 @@ def receipt_submit(receipt_id: int, db: DBDependency, current_user: Annotated[db
 @app.put("/receipt/{receipt_id}/approve")
 def receipt_approve(receipt_id: int, status: str, db: DBDependency, current_user: Annotated[db_model.User, Depends(check_user_role('Admin'))]):
   
-  receipt = db.query(db_model.Receipt).filter(db_model.Receipt.i_id == receipt_id).first()
+  # receipt = db.query(db_model.Receipt).filter(db_model.Receipt.i_id == receipt_id).first() Old code
+  # Changed filter to r_id
+  receipt = db.query(db_model.Receipt).filter(db_model.Receipt.r_id == receipt_id).first()
   
   if not receipt:
     raise HTTPException(status_code=404, detail="Receipt not found")
@@ -451,11 +466,12 @@ def receipt_approve(receipt_id: int, status: str, db: DBDependency, current_user
 def get_receipt(receipt_id: int, db: DBDependency):
 
     receipt = db.query(db_model.Receipt).filter(db_model.Receipt.r_id == receipt_id).first()
-
+    
     if not receipt:
         raise HTTPException(status_code=404, detail="Receipt not found")
     
-    receipt.total = float(receipt.total)
+    # receipt.total = float(receipt.total) receipt doesn't have total a
+    receipt.amount = float(receipt.amount) # fix to amount
     
     return receipt
    
