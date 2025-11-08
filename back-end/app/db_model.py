@@ -30,6 +30,10 @@ class User(Base):
 class Quotation(Base):
     __tablename__ = "Quotations"
     q_id = Column(Integer, primary_key=True, index=True, name="q_id")
+    quotation_number = Column(String(50), nullable=False, default="Q-YYYYMMDD-000")
+    customer_name = Column(String(100), nullable=False)
+    customer_address = Column(Text, nullable=False)
+    customer_email = Column(String(150), nullable=False)
     u_id = Column(UUID(as_uuid=True), ForeignKey("Users.u_id", ondelete="CASCADE"))
     status = Column(String(30), nullable=False, default='Draft')
     total = Column(Numeric(12, 2), nullable=False)
