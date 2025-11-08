@@ -23,7 +23,7 @@ class User(Base):
     quotations = relationship("Quotation", back_populates="user")
     notifications = relationship("Notification", back_populates="user")
     logs = relationship("Log", back_populates="actor")
-    # Add relationships for triggers
+
     invoices = relationship("Invoice", back_populates="user")
     receipts = relationship("Receipt", back_populates="user")
 
@@ -44,7 +44,7 @@ class Quotation(Base):
 
     user = relationship("User", back_populates="quotations")
     invoices = relationship("Invoice", back_populates="quotation")
-    # Added relationship to new Items table
+
     items = relationship("QuotationItem", back_populates="quotation", cascade="all, delete-orphan")
 
 class Invoice(Base):
@@ -66,7 +66,7 @@ class Invoice(Base):
     quotation = relationship("Quotation", back_populates="invoices")
     receipts = relationship("Receipt", back_populates="invoice")
     user = relationship("User", back_populates="invoices")# relationship for triggers
-    #relationship to new Items table
+
     items = relationship("InvoiceItem", back_populates="invoice", cascade="all, delete-orphan") 
 
 class Receipt(Base):
@@ -76,9 +76,9 @@ class Receipt(Base):
     payment_date = Column(String, nullable=False)
     amount = Column(Numeric(12, 2), nullable=False)
     status = Column(String(20), nullable=False, default='Pending')
-    # Added u_id for trigger/log support
+
     u_id = Column(UUID(as_uuid=True), ForeignKey("Users.u_id", ondelete="SET NULL"), nullable=True)
-    # Added payment_method from SQL
+
     payment_method = Column(String(20), )
     
     __table_args__ = (
@@ -144,7 +144,6 @@ class QuotationItem(Base):
     unit_price = Column(Numeric(12, 2), nullable=False)
     total = Column(Numeric(12, 2), Computed("quantity * unit_price", persisted=True))
 
-    
     quotation = relationship("Quotation", back_populates="items")
 
 

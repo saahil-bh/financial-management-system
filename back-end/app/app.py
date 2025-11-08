@@ -1,15 +1,16 @@
 from fastapi import FastAPI, HTTPException, Depends, status
 from pydantic import BaseModel
-from typing import List, Annotated
+from typing import List, Annotated, Optional
 from fastapi.security import OAuth2PasswordRequestForm
+# from sqlmodel import SQLModel, Field,Session
 from . import auth
 from . import db_model 
 from .auth import get_current_user,check_user_role
 from .database import engine, SessionLocal, get_db
 from sqlalchemy.orm import Session
 from decimal import Decimal
-from datetime import timedelta, date # add date 
-import uuid # import uuid
+from datetime import timedelta, date
+import uuid 
 
 app = FastAPI()
 app.include_router(auth.router) 
@@ -79,9 +80,8 @@ class InvoiceResponse(InvoiceBase):
 
 # Receipt
 class ReceiptCreate(BaseModel):
-    # r_id: int
-    # amount: float
-    i_id: int # Changed from r_id
+    r_id: int
+    i_id: int
     amount: float
     payment_date: date 
     payment_method: str 
@@ -118,7 +118,7 @@ def read_users_me(current_user: CurrentUser):
 def create_quotation(quotation: QuotationCreate, db: DBDependency, current_user: Annotated[db_model.User, Depends(check_user_role('User'))]):    
 
     db_quotation = db_model.Quotation(
-        user_id = current_user.u_id, # Set user_id from logged-in user
+        u_id = current_user.u_id,
         total = Decimal(str(quotation.total)),
         tax = Decimal(str(quotation.tax))
     )
@@ -268,22 +268,14 @@ def create_invoice(invoice: InvoiceCreate, db: DBDependency, current_user: Annot
   
   if not check_qid:
     raise HTTPException(status_code=404, detail=f"Quotation ID:{invoice.q_id} not found.")
-  
-  # *** LOGICAL ERROR HERE ***
-  # This checks if *ANY* quotation in the database is "Approved",
-  # not if the *specific one* you found (check_qid) is approved.
-  # ---------------------------------------------------------------  
-  #  check_approve = db.query(db_model.Quotation).filter(db_model.Quotation.status == "Approved").first()
-  #if not check_approve: 
-     #raise HTTPException(status_code=404, detail=f"Quotation ID:{invoice.q_id} has not been Approved.")
-  # ---------------------------------------------------------------
+
   if check_qid.status != "Approved": #fixed version
      raise HTTPException(status_code=400, detail=f"Quotation ID:{invoice.q_id} has not been Approved.")
   
   db_invoice = db_model.Invoice(
     q_id = invoice.q_id,
     total = Decimal(str(invoice.total)),
-    u_id = current_user.u_id # Added user_id for trigger
+    u_id = current_user.u_id
     )
   
   try:
@@ -371,17 +363,8 @@ def create_receipt(receipt: ReceiptCreate, db: DBDependency, current_user: Annot
   check_iid = db.query(db_model.Invoice).filter(db_model.Invoice.i_id == receipt.i_id).first()
   
   if not check_iid:
-    # Fixed error message to use i_id
-    # raise HTTPException(status_code=404, detail=f"Quotation ID:{receipt.q_id} not found.") OLd version
     raise HTTPException(status_code=404, detail=f"Invoice ID:{receipt.i_id} not found.")
-  # *** LOGICAL ERROR HERE ***
-  # This checks if *ANY* invoice in the database is "Approved".
-  #------------------------------------------------------------------
-  #check_approve = db.query(db_model.Invoice).filter(db_model.Invoice.status == "Approved").first()
-  #if not check_approve: 
-  #   raise HTTPException(status_code=404, detail=f"Invoice ID:{receipt.i_id} has not been Approved.")
-  #------------------------------------------------------------------
-  # corrected version
+  
   if check_iid.status != "Approved": 
      raise HTTPException(status_code=404, detail=f"Invoice ID:{receipt.i_id} has not been Approved.")
   
@@ -430,8 +413,6 @@ def receipt_submit(receipt_id: int, db: DBDependency, current_user: Annotated[db
 @app.put("/receipt/{receipt_id}/approve")
 def receipt_approve(receipt_id: int, status: str, db: DBDependency, current_user: Annotated[db_model.User, Depends(check_user_role('Admin'))]):
   
-  # receipt = db.query(db_model.Receipt).filter(db_model.Receipt.i_id == receipt_id).first() Old code
-  # Changed filter to r_id
   receipt = db.query(db_model.Receipt).filter(db_model.Receipt.r_id == receipt_id).first()
   
   if not receipt:
@@ -470,8 +451,7 @@ def get_receipt(receipt_id: int, db: DBDependency):
     if not receipt:
         raise HTTPException(status_code=404, detail="Receipt not found")
     
-    # receipt.total = float(receipt.total) receipt doesn't have total a
-    receipt.amount = float(receipt.amount) # fix to amount
+    receipt.amount = float(receipt.amount)
     
     return receipt
    

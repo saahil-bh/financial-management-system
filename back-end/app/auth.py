@@ -30,7 +30,7 @@ class CreateUser(BaseModel):
    email: str
    role: str
    password: str
-   address: str | None = None # Added address field
+   address: str | None = None
 
 class Token(BaseModel):
   access_token: str
