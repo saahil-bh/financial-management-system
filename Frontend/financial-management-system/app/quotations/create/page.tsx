@@ -82,7 +82,7 @@ export default function CreateQuotationPage() {
         <h3 className="text-xl font-semibold">Quotation Information:</h3>
         
         <div className="grid grid-cols-2 gap-4">
-          <Input placeholder="Quotation Number" className="bg-white text-black border-primary border-2 rounded-none" />
+          <Input placeholder="Quotation ID" className="bg-white text-black border-primary border-2 rounded-none" />
           <Input placeholder="Customer Name" className="bg-white text-black border-primary border-2 rounded-none" />
           <Input placeholder="Customer Address" className="bg-white text-black border-primary border-2 rounded-none" />
           <Input placeholder="Customer Email" className="bg-white text-black border-primary border-2 rounded-none" />
