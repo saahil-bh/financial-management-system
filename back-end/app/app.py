@@ -14,7 +14,6 @@ import uuid
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
-app.include_router(auth.router)
 
 origins = [
     "http://localhost:3000",
@@ -29,7 +28,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app = FastAPI()
 app.include_router(auth.router) 
 
 # db_model.Base.metadata.create_all(bind=engine)

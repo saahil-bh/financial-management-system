@@ -66,7 +66,7 @@ export default function QuotationsPage() {
       <div className="flex items-center justify-between bg-primary p-4 ">
         <h2 className="text-2xl font-bold text-primary-foreground">
           {/* Use the real user's ID (or name, if you fetch it) */}
-          Welcome back, {user.id}!
+          Welcome back, {user.name}!
         </h2>
         {isUser && (
           <Button

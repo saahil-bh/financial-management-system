@@ -1,15 +1,16 @@
-// context/AuthContext.tsx
 "use client";
 
 import React, { createContext, useState, useContext, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import api from "@/lib/api";
+// import api from "@/lib/api"; // <-- We are bypassing this for the test
 
+// --- Your User interface ---
+// (Make sure this matches your /users/me response)
 interface User {
-  id: string;
+  u_id: string; 
+  name: string;
+  email: string;
   role: "Admin" | "User";
-  name: string; // TEMPORARY --> NEED TO FIX
-  // Add other user fields like name, email if you want
 }
 
 interface AuthContextType {
@@ -17,11 +18,16 @@ interface AuthContextType {
   token: string | null;
   isLoading: boolean;
   error: string | null;
-  login: (username: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>; 
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// --- Your API Base URL ---
+// Make sure this matches your running backend
+const API_URL = "http://localhost:8000";
+
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -35,47 +41,67 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const storedToken = localStorage.getItem("access_token");
     if (storedToken) {
       setToken(storedToken);
-      fetchUser(); // Fetch user details if we have a token
+      fetchUser(storedToken); // <-- Pass token to fetchUser
     }
   }, []);
 
-  // Function to fetch the user's data (like their role)
-  // This is a separate call from login
-  const fetchUser = async () => {
+  const fetchUser = async (currentToken: string) => {
     try {
-      // 1. You MUST ask your colleague to create this endpoint
-      // 2. It should use the token to find the user and return their info
-      const response = await api.get("/users/me"); 
-      setUser(response.data); // e.g., { id: "user1", role: "ADMIN" }
-      router.push("/quotations"); // Redirect to quotations after successful load
+      // --- Use fetch for this call too ---
+      const response = await fetch(`${API_URL}/users/me`, {
+        headers: {
+          "Authorization": `Bearer ${currentToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Token is invalid");
+      }
+
+      const userData = await response.json();
+      setUser(userData); 
+      router.push("/quotations");
     } catch (err) {
-      // Token is invalid
       logout();
     }
   };
 
-  const login = async (username: string, password: string) => {
+  // --- **** THIS IS THE MODIFIED FUNCTION **** ---
+  const login = async (email: string, password: string) => {
     setIsLoading(true);
     setError(null);
 
     const formData = new URLSearchParams();
-    formData.append("username", username);
+    formData.append("username", email);
     formData.append("password", password);
 
     try {
-      const response = await api.post("/auth/login", formData, {
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      // --- We are using FETCH instead of api.post ---
+      const response = await fetch(`${API_URL}/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: formData,
       });
 
-      const { access_token } = response.data;
-      localStorage.setItem("access_token", access_token);
-      setToken(access_token);
+      if (!response.ok) {
+        // Handle failed login
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Invalid Email or password");
+      }
+
+      // Login was successful
+      const data = await response.json(); // data = { access_token: "...", token_type: "..." }
       
-      // IMPORTANT: Now that we have the token, fetch the user's details
-      await fetchUser();
+      localStorage.setItem("access_token", data.access_token);
+      setToken(data.access_token);
+      
+      // Now that we have the token, fetch the user's details
+      await fetchUser(data.access_token);
 
     } catch (err: any) {
-      setError(err.response?.data?.detail || "Invalid ID or password");
+      setError(err.message); // Use err.message since we threw a new Error
     } finally {
       setIsLoading(false);
     }
