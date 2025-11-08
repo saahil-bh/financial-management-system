@@ -1,22 +1,18 @@
-// app/(main)/layout.tsx
 "use client";
-
 import Image from "next/image";
 import MyFinance from "@/components/svgs/MyFinance.svg";
 import { Button } from "@/components/ui/button";
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { redirect } from "next/navigation";
-// We will import this for real later
-// import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/context/AuthContext"; // Import the real useAuth hook
 
-// 1. Define links with roles
+// Define links with roles
 const navLinks = [
-  { label: "Quotations", href: "/quotations", roles: ["ADMIN", "USER"] },
-  { label: "Invoices", href: "/invoices", roles: ["ADMIN", "USER"] },
-  { label: "Receipts", href: "/receipts", roles: ["ADMIN", "USER"] },
-  { label: "Logs", href: "/logs", roles: ["ADMIN"] },
+  { label: "Quotations", href: "/quotations", roles: ["Admin", "User"] },
+  { label: "Invoices", href: "/invoices", roles: ["Admin", "User"] },
+  { label: "Receipts", href: "/receipts", roles: ["Admin", "User"] },
+  { label: "Logs", href: "/logs", roles: ["Admin"] }, // Only Admin can see this
 ];
 
 export default function MainLayout({
@@ -25,23 +21,26 @@ export default function MainLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  // const { user, logout } = useAuth(); // We'll use this later
+  // Get the real user and logout function from the AuthContext
+  const { user, logout } = useAuth();
 
-  // 2. Add a temporary mock user (and a toggle for testing)
-  // We'll replace this with the real user from useAuth()
-  const [mockRole, setMockRole] = React.useState<"USER" | "ADMIN">("USER");
-  const mockUser = { role: mockRole };
-
+  // Fix the logout handler to use the context's function
   const handleLogout = () => {
-    // TEMPORARY:
-        console.log("Logging out...");
-        redirect("/login");
-    // logout();
+    logout();
   };
 
-  // 3. Filter the links based on the user's role
+  // --- Add a loading state ---
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <p>Loading user session...</p>
+      </div>
+    );
+  }
+
+  // Filter links based on the REAL user's role
   const accessibleLinks = navLinks.filter((link) =>
-    link.roles.includes(mockUser.role)
+    link.roles.includes(user.role)
   );
 
   return (
@@ -57,7 +56,7 @@ export default function MainLayout({
         />
 
         <nav className="flex gap-4">
-          {/* 4. Map over the *filtered* links */}
+          {/* Map over the filtered links */}
           {accessibleLinks.map((link) => {
             const isActive = pathname.startsWith(link.href);
 
@@ -91,24 +90,7 @@ export default function MainLayout({
 
       {/* PAGE CONTENT */}
       <main className="p-8">
-        {/* This is a TEMPORARY UI toggle. You can delete this later.
-        */}
-        <div className="absolute top-100 right-8 p-4 bg-gray-800 rounded-lg space-y-2 z-10">
-          <h4 className="font-bold">Test UI As:</h4>
-          <Button
-            onClick={() => setMockRole("USER")}
-            variant={mockRole === "USER" ? "default" : "secondary"}
-          >
-            User
-          </Button>
-          <Button
-            onClick={() => setMockRole("ADMIN")}
-            variant={mockRole === "ADMIN" ? "default" : "secondary"}
-          >
-            Admin
-          </Button>
-        </div>
-
+        {/* The temporary UI toggle has been removed */}
         {children}
       </main>
     </div>

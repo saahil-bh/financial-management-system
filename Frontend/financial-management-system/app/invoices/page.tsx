@@ -1,93 +1,101 @@
 "use client";
+
 import { Button } from "@/components/ui/button";
 import * as React from "react";
-import { redirect } from "next/navigation";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
+import api from "@/lib/api";
 
-// --- MOCK DATA ---
-const userInvoices = [
-  { id: "INV-20251105-001", status: "Draft" },
-  { id: "INV-20251105-002", status: "Pending" },
-  { id: "INV-20251105-003", status: "Approved" },
-  { id: "INV-20251105-004", status: "Rejected" },
-  { id: "INV-20251105-005", status: "Draft" },
-  { id: "INV-20251105-006", status: "Pending" },
-  { id: "INV-20251105-007", status: "Approved" },
-];
-const adminInvoices = [
-  { id: "INV-20251105-101", status: "Pending" },
-  { id: "INV-20251105-102", status: "Pending" },
-  { id: "INV-20251105-103", status: "Pending" },
-  { id: "INV-20251105-104", status: "Approved" },
-  { id: "INV-20251105-105", status: "Rejected" },
-  { id: "INV-20251105-106", status: "Rejected" },
-  { id: "INV-20251105-107", status: "Approved" },
-];
+interface Invoice {
+  id: string;
+  status: string;
+  // ... add any other fields the API returns
+}
 
 export default function InvoicesPage() {
-  // TEMPORARY: we can test by being user or admin
-  const [mockRole, setMockRole] = React.useState<"User" | "Admin">("User");
-  const isUser = mockRole === "User";
-  const mockUser = { name: "Test User" }; 
+  const { user } = useAuth();
+  const router = useRouter();
+  const [invoices, setInvoices] = React.useState<Invoice[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    const fetchInvoices = async () => {
+      setIsLoading(true);
+      try {
+        const endpoint = user.role === "Admin" ? "/invoices" : "/invoices/me";
+        
+        const response = await api.get(endpoint);
+        setInvoices(response.data);
+      } catch (err) {
+        console.error("Failed to fetch invoices:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchInvoices();
+  }, [user]);
+
+  if (isLoading || !user) {
+    return (
+      <div className="flex justify-center items-center min-h-[50vh]">
+        <p>Loading invoices...</p>
+      </div>
+    );
+  }
+
+  const isUser = user.role === "User";
 
   return (
     <div className="space-y-6">
-      {/* TEMPORARY UI*/}
-      <div className="absolute top-60 right-8 p-4 bg-gray-300 rounded-lg space-y-2">
-        <h4 className="font-bold">Test UI As:</h4>
-        <Button onClick={() => setMockRole("User")} variant={isUser ? "default" : "secondary"}>User</Button>
-        <Button onClick={() => setMockRole("Admin")} variant={!isUser ? "default" : "secondary"}>Admin</Button>
-      </div>
-
       <div className="flex items-center justify-between bg-primary p-4 ">
         <h2 className="text-2xl font-bold text-primary-foreground">
-          Welcome back, {mockUser.name}!
+          Welcome back, {user.id}!
         </h2>
         {isUser && (
           <Button
-            onClick={() => redirect("/invoices/create")}
-            className="bg-white text-black font-bold hover:bg-gray-200">
+            onClick={() => router.push("/invoices/create")}
+            className="bg-white text-black font-bold hover:bg-gray-200"
+          >
             Create Invoice
           </Button>
         )}
         {!isUser && (
-          <Button 
-            onClick={() => redirect("/logs")}
-            className="bg-white text-black font-bold hover:bg-gray-200">
+          <Button
+            onClick={() => router.push("/logs")}
+            className="bg-white text-black font-bold hover:bg-gray-200"
+          >
             Logs
           </Button>
         )}
       </div>
 
       <h3 className="text-3xl font-bold">
-        {isUser ? "Your Invoices:" : "Pending Invoices:"}
+        {isUser ? "Your Invoices:" : "All Invoices:"}
       </h3>
 
       <div className="space-y-4">
-        {isUser 
-          ? <UserInvoiceList /> 
-          : <AdminInvoiceList />
-        }
+        {isUser ? (
+          <UserInvoiceList invoices={invoices} />
+        ) : (
+          <AdminInvoiceList invoices={invoices} />
+        )}
       </div>
     </div>
   );
 }
 
-
-// Regular User:
-function UserInvoiceList() {
-  const draftInvoices = userInvoices.filter(
-    (q) => q.status === "Draft"
-  );
-  const pendingInvoices = userInvoices.filter(
-    (q) => q.status === "Pending"
-  );
-  const approvedInvoices = userInvoices.filter(
-    (q) => q.status === "Approved"
-  );
-  const rejectedInvoices = userInvoices.filter(
-    (q) => q.status === "Rejected"
-  );
+// --- Regular User (Updated to accept props) ---
+function UserInvoiceList({ invoices }: { invoices: Invoice[] }) {
+  const draftInvoices = invoices.filter((q) => q.status === "Draft");
+  const pendingInvoices = invoices.filter((q) => q.status === "Pending");
+  const approvedInvoices = invoices.filter((q) => q.status === "Approved");
+  const rejectedInvoices = invoices.filter((q) => q.status === "Rejected");
 
   return (
     <>
@@ -98,7 +106,10 @@ function UserInvoiceList() {
         </div>
       )}
       {draftInvoices.map((q) => (
-        <div key={q.id} className="p-3 rounded-lg flex items-center justify-between border border-gray-700">
+        <div
+          key={q.id}
+          className="p-3 rounded-lg flex items-center justify-between border border-gray-700"
+        >
           <span>{q.id}</span>
           <div className="space-x-2">
             <Link href={`/invoices/${q.id}`}>
@@ -120,7 +131,10 @@ function UserInvoiceList() {
         </div>
       )}
       {pendingInvoices.map((q) => (
-        <div key={q.id} className="p-3 rounded-lg flex items-center justify-between border border-gray-700">
+        <div
+          key={q.id}
+          className="p-3 rounded-lg flex items-center justify-between border border-gray-700"
+        >
           <span>{q.id}</span>
           <div className="space-x-2">
             <Link href={`/invoices/${q.id}`}>
@@ -139,7 +153,10 @@ function UserInvoiceList() {
         </div>
       )}
       {approvedInvoices.map((q) => (
-        <div key={q.id} className="p-3 rounded-lg flex items-center justify-between border border-gray-700">
+        <div
+          key={q.id}
+          className="p-3 rounded-lg flex items-center justify-between border border-gray-700"
+        >
           <span>{q.id}</span>
           <div className="space-x-2">
             <Link href={`/invoices/${q.id}`}>
@@ -160,7 +177,10 @@ function UserInvoiceList() {
         </div>
       )}
       {rejectedInvoices.map((q) => (
-        <div key={q.id} className="p-3 rounded-lg flex items-center justify-between border border-gray-700">
+        <div
+          key={q.id}
+          className="p-3 rounded-lg flex items-center justify-between border border-gray-700"
+        >
           <span>{q.id}</span>
           <div className="space-x-2">
             <Link href={`/invoices/${q.id}`}>
@@ -173,17 +193,11 @@ function UserInvoiceList() {
   );
 }
 
-// Admins:
-function AdminInvoiceList() {
-  const pendingInvoices = adminInvoices.filter(
-    (q) => q.status === "Pending"
-  );
-  const approvedInvoices = adminInvoices.filter(
-    (q) => q.status === "Approved"
-  );
-  const rejectedInvoices = adminInvoices.filter(
-    (q) => q.status === "Rejected"
-  );
+// --- Admins (Updated to accept props) ---
+function AdminInvoiceList({ invoices }: { invoices: Invoice[] }) {
+  const pendingInvoices = invoices.filter((q) => q.status === "Pending");
+  const approvedInvoices = invoices.filter((q) => q.status === "Approved");
+  const rejectedInvoices = invoices.filter((q) => q.status === "Rejected");
 
   return (
     <>
@@ -196,7 +210,10 @@ function AdminInvoiceList() {
         </div>
       )}
       {pendingInvoices.map((q) => (
-        <div key={q.id} className="p-3 rounded-lg flex items-center justify-between border border-gray-700">
+        <div
+          key={q.id}
+          className="p-3 rounded-lg flex items-center justify-between border border-gray-700"
+        >
           <span>{q.id}</span>
           <div className="space-x-2">
             <Link href={`/invoices/${q.id}`}>
@@ -217,7 +234,10 @@ function AdminInvoiceList() {
         </div>
       )}
       {approvedInvoices.map((q) => (
-        <div key={q.id} className="p-3 rounded-lg flex items-center justify-between border border-gray-700">
+        <div
+          key={q.id}
+          className="p-3 rounded-lg flex items-center justify-between border border-gray-700"
+        >
           <span>{q.id}</span>
           <div className="space-x-2">
             <Link href={`/invoices/${q.id}`}>
@@ -238,7 +258,10 @@ function AdminInvoiceList() {
         </div>
       )}
       {rejectedInvoices.map((q) => (
-        <div key={q.id} className="p-3 rounded-lg flex items-center justify-between border border-gray-700">
+        <div
+          key={q.id}
+          className="p-3 rounded-lg flex items-center justify-between border border-gray-70Player"
+        >
           <span>{q.id}</span>
           <div className="space-x-2">
             <Link href={`/invoices/${q.id}`}>

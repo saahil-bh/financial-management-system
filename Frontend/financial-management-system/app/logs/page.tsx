@@ -2,94 +2,75 @@
 import { Button } from "@/components/ui/button";
 import * as React from "react";
 import { Lock } from "lucide-react";
+import { useAuth } from "@/context/AuthContext"; // Import the Auth hook
+import api from "@/lib/api"; // Import the API client
 
-// --- MOCK DATA ---
-const mockLogs = [
-  {
-    l_id: 1,
-    actor_id: 101,
-    action: "Approved",
-    document_id: "Q001",
-    timestamp: "2025-11-05 10:30:00",
-  },
-  {
-    l_id: 2,
-    actor_id: 101,
-    action: "Rejected",
-    document_id: "Q002",
-    timestamp: "2025-11-05 10:32:00",
-  },
-  {
-    l_id: 3,
-    actor_id: 202,
-    action: "Submitted",
-    document_id: "Q003",
-    timestamp: "2025-11-05 10:35:00",
-  },
-  {
-    l_id: 4,
-    actor_id: 203,
-    action: "Created",
-    document_id: "Q004",
-    timestamp: "2025-11-05 10:40:00",
-  },
-  {
-    l_id: 5,
-    actor_id: 101,
-    action: "Approved",
-    document_id: "Q005",
-    timestamp: "2025-11-05 10:42:00",
-  },
-  {
-    l_id: 6,
-    actor_id: 101,
-    action: "Approved",
-    document_id: "Q006",
-    timestamp: "2025-11-05 10:42:00",
-  },
-  {
-    l_id: 7,
-    actor_id: 101,
-    action: "Approved",
-    document_id: "Q007",
-    timestamp: "2025-11-05 10:42:00",
-  },
-  {
-    l_id: 8,
-    actor_id: 101,
-    action: "Approved",
-    document_id: "Q008",
-    timestamp: "2025-11-05 10:42:00",
-  },
-];
+// Define the type for a Log
+interface Log {
+  l_id: number;
+  actor_id: number;
+  action: string;
+  document_id: string;
+  timestamp: string;
+}
 
 export default function LogsPage() {
-  const [mockRole, setMockRole] = React.useState<"User" | "Admin">("Admin");
-  const isAdmin = mockRole === "Admin";
+  const { user } = useAuth(); // Get the real user
+  const [logs, setLogs] = React.useState<Log[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
 
+  // Check the user's role
+  const isAdmin = user?.role === "Admin";
+
+  React.useEffect(() => {
+    // Only fetch logs if the user is an Admin
+    if (user && isAdmin) {
+      const fetchLogs = async () => {
+        setIsLoading(true);
+        try {
+          const response = await api.get("/logs");
+          setLogs(response.data);
+        } catch (err) {
+          console.error("Failed to fetch logs:", err);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      fetchLogs();
+    } else if (user) {
+      // If the user is loaded but is not an Admin
+      setIsLoading(false);
+    }
+  }, [user, isAdmin]); // Re-run if the user or isAdmin status changes
+
+  // Show a loading state while we wait for the user object
+  if (!user) {
+    return (
+      <div className="flex justify-center items-center min-h-[50vh]">
+        <p>Loading user session...</p>
+      </div>
+    );
+  }
+
+  // Show a loading state while fetching logs (only for Admin)
+  if (isLoading && isAdmin) {
+     return (
+      <div className="flex justify-center items-center min-h-[50vh]">
+        <p>Loading logs...</p>
+      </div>
+    );
+  }
+
+  // Once loading is done, show LogsList for Admin or AccessDenied for User
   return (
     <div className="space-y-6">
-      {/* TEMPORARY: we can test by being user or admin */}
-      <div className="absolute top-80 right-8 p-4 bg-gray-800 rounded-lg space-y-2">
-        <h4 className="font-bold">Test UI As:</h4>
-        <Button
-          onClick={() => setMockRole("User")}
-          variant={!isAdmin ? "default" : "secondary"}
-        >
-          User
-        </Button>
-        <Button
-          onClick={() => setMockRole("Admin")}
-          variant={isAdmin ? "default" : "secondary"}
-        >
-          Admin
-        </Button>
-      </div>
-
+      {/* The temporary UI toggle is removed */}
+      
       <h3 className="text-3xl font-bold">System Activity Logs</h3>
 
       {isAdmin ? (
-        <LogsList />
+        <LogsList logs={logs} />
       ) : (
         <AccessDenied />
       )}
@@ -97,8 +78,8 @@ export default function LogsPage() {
   );
 }
 
-// --- ADMIN'S LOG LIST COMPONENT ---
-function LogsList() {
+// --- ADMIN'S LOG LIST COMPONENT (Accepts logs as a prop) ---
+function LogsList({ logs }: { logs: Log[] }) {
   const getActionColor = (action: string) => {
     switch (action.toLowerCase()) {
       case "approved":
@@ -123,13 +104,13 @@ function LogsList() {
         <span className="w-1/4">Document ID</span>
       </div>
 
-      {/* LOG ROWS */}
-      {mockLogs.map((log) => (
+      {/* LOG ROWS (from real data) */}
+      {logs.map((log) => (
         <div
           key={log.l_id}
           className="flex p-3 rounded-lg border border-gray-700 items-center"
         >
-          <span className="w-1/4 font-mono text-sm">{log.timestamp}</span>
+          <span className="w-1/CSS-1/4 font-mono text-sm">{log.timestamp}</span>
           <span className="w-1/4">{log.actor_id}</span>
           <span className={`w-1/4 font-bold ${getActionColor(log.action)}`}>
             {log.action}
@@ -141,7 +122,6 @@ function LogsList() {
   );
 }
 
-// --- ACCESS DENIED COMPONENT ---
 function AccessDenied() {
   return (
     <div className="flex flex-col items-center justify-center text-center p-12 rounded-lg border-2 border-dashed border-destructive bg-destructive/10">

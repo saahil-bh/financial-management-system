@@ -1,82 +1,100 @@
 "use client";
+
 import { Button } from "@/components/ui/button";
 import * as React from "react";
-import { redirect } from "next/navigation";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
+import api from "@/lib/api";
 
-// --- MOCK DATA ---
-const userReceipts = [
-  { id: "RC-20251105-001", status: "Pending" },
-  { id: "RC-20251105-002", status: "Pending" },
-  { id: "RC-20251105-003", status: "Approved" },
-  { id: "RC-20251105-004", status: "Rejected" },
-  { id: "RC-20251105-005", status: "Rejected" },
-  { id: "RC-20251105-006", status: "Pending" },
-  { id: "RC-20251105-007", status: "Approved" },
-];
-const adminReceipts = [
-  { id: "RC-20251105-101", status: "Pending" },
-  { id: "RC-20251105-102", status: "Pending" },
-  { id: "RC-20251105-103", status: "Pending" },
-  { id: "RC-20251105-104", status: "Approved" },
-  { id: "RC-20251105-105", status: "Rejected" },
-  { id: "RC-20251105-106", status: "Rejected" },
-  { id: "RC-20251105-107", status: "Approved" },
-];
+interface Receipt {
+  id: string;
+  status: string;
+  name: string;
+  // ... add any other fields the API returns
+}
 
 export default function ReceiptsPage() {
-  // TEMPORARY: we can test by being user or admin
-  const [mockRole, setMockRole] = React.useState<"User" | "Admin">("User");
-  const isUser = mockRole === "User";
-  const mockUser = { name: "Test User" }; 
+  const { user } = useAuth();
+  const router = useRouter();
+  const [receipts, setReceipts] = React.useState<Receipt[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
+
+  
+  React.useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    const fetchReceipts = async () => {
+      setIsLoading(true);
+      try {
+        
+        const endpoint = user.role === "Admin" 
+          ? "/receipts"
+          : "/receipts/me";
+        
+        const response = await api.get(endpoint);
+        setReceipts(response.data);
+      } catch (err) {
+        console.error("Failed to fetch receipts:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchReceipts();
+  }, [user]);
+
+  if (isLoading || !user) {
+    return (
+      <div className="flex justify-center items-center min-h-[50vh]">
+        <p>Loading receipts...</p>
+      </div>
+    );
+  }
+
+  const isUser = user.role === "User";
 
   return (
     <div className="space-y-6">
-      {/* TEMPORARY UI*/}
-      <div className="absolute top-60 right-8 p-4 bg-gray-300 rounded-lg space-y-2">
-        <h4 className="font-bold">Test UI As:</h4>
-        <Button onClick={() => setMockRole("User")} variant={isUser ? "default" : "secondary"}>User</Button>
-        <Button onClick={() => setMockRole("Admin")} variant={!isUser ? "default" : "secondary"}>Admin</Button>
-      </div>
 
       <div className="flex items-center justify-between bg-primary p-4 ">
         <h2 className="text-2xl font-bold text-primary-foreground">
-          Welcome back, {mockUser.name}!
+          Welcome back, {user.name}!
         </h2>
         {!isUser && (
-          <Button 
-            onClick={() => redirect("/logs")}
-            className="bg-white text-black font-bold hover:bg-gray-200">
+          <Button
+            onClick={() => router.push("/logs")} // Use router.push
+            className="bg-white text-black font-bold hover:bg-gray-200"
+          >
             Logs
           </Button>
         )}
       </div>
 
       <h3 className="text-3xl font-bold">
-        {isUser ? "Your Receipts:" : "Pending Receipts:"}
+        {isUser ? "Your Receipts:" : "All Receipts:"}
       </h3>
 
       <div className="space-y-4">
-        {isUser 
-          ? <UserReceiptsList /> 
-          : <AdminReceiptsList />
-        }
+        {/* Pass the fetched receipts down as a prop */}
+        {isUser ? (
+          <UserReceiptsList receipts={receipts} />
+        ) : (
+          <AdminReceiptsList receipts={receipts} />
+        )}
       </div>
     </div>
   );
 }
 
-
-// Regular User:
-function UserReceiptsList() {
-  const pendingReceipts = userReceipts.filter(
-    (q) => q.status === "Pending"
-  );
-  const approvedReceipts = userReceipts.filter(
-    (q) => q.status === "Approved"
-  );
-  const rejectedReceipts = userReceipts.filter(
-    (q) => q.status === "Rejected"
-  );
+// --- Regular User (Updated to accept props) ---
+function UserReceiptsList({ receipts }: { receipts: Receipt[] }) {
+  // Filter the 'receipts' prop, not the old mock data
+  const pendingReceipts = receipts.filter((q) => q.status === "Pending");
+  const approvedReceipts = receipts.filter((q) => q.status === "Approved");
+  const rejectedReceipts = receipts.filter((q) => q.status === "Rejected");
 
   return (
     <>
@@ -89,10 +107,16 @@ function UserReceiptsList() {
         </div>
       )}
       {pendingReceipts.map((q) => (
-        <div key={q.id} className="p-3 rounded-lg flex items-center justify-between border border-gray-700">
+        <div
+          key={q.id}
+          className="p-3 rounded-lg flex items-center justify-between border border-gray-700"
+        >
           <span>{q.id}</span>
           <div className="space-x-2">
-            <Button variant="secondary">Details</Button>
+            {/* TODO: Add Link when /receipts/[id] page exists */}
+            {/* <Link href={`/receipts/${q.id}`}> */}
+              <Button variant="secondary">Details</Button>
+            {/* </Link> */}
           </div>
         </div>
       ))}
@@ -106,10 +130,15 @@ function UserReceiptsList() {
         </div>
       )}
       {approvedReceipts.map((q) => (
-        <div key={q.id} className="p-3 rounded-lg flex items-center justify-between border border-gray-700">
+        <div
+          key={q.id}
+          className="p-3 rounded-lg flex items-center justify-between border border-gray-700"
+        >
           <span>{q.id}</span>
           <div className="space-x-2">
-            <Button variant="secondary">Details</Button>
+            {/* <Link href={`/receipts/${q.id}`}> */}
+              <Button variant="secondary">Details</Button>
+            {/* </Link> */}
             <Button variant="secondary">Quotation</Button>
             <Button variant="secondary">Invoice</Button>
           </div>
@@ -125,10 +154,15 @@ function UserReceiptsList() {
         </div>
       )}
       {rejectedReceipts.map((q) => (
-        <div key={q.id} className="p-3 rounded-lg flex items-center justify-between border border-gray-700">
+        <div
+          key={q.id}
+          className="p-3 rounded-lg flex items-center justify-between border border-gray-700"
+        >
           <span>{q.id}</span>
           <div className="space-x-2">
-            <Button variant="secondary">Details</Button>
+            {/* <Link href={`/receipts/${q.id}`}> */}
+              <Button variant="secondary">Details</Button>
+            {/* </Link> */}
           </div>
         </div>
       ))}
@@ -136,17 +170,12 @@ function UserReceiptsList() {
   );
 }
 
-// Admins:
-function AdminReceiptsList() {
-  const pendingReceipts = adminReceipts.filter(
-    (q) => q.status === "Pending"
-  );
-  const approvedReceipts = adminReceipts.filter(
-    (q) => q.status === "Approved"
-  );
-  const rejectedReceipts = adminReceipts.filter(
-    (q) => q.status === "Rejected"
-  );
+// --- Admins (Updated to accept props) ---
+function AdminReceiptsList({ receipts }: { receipts: Receipt[] }) {
+  // Filter the 'receipts' prop, not the old mock data
+  const pendingReceipts = receipts.filter((q) => q.status === "Pending");
+  const approvedReceipts = receipts.filter((q) => q.status === "Approved");
+  const rejectedReceipts = receipts.filter((q) => q.status === "Rejected");
 
   return (
     <>
@@ -159,10 +188,15 @@ function AdminReceiptsList() {
         </div>
       )}
       {pendingReceipts.map((q) => (
-        <div key={q.id} className="p-3 rounded-lg flex items-center justify-between border border-gray-700">
+        <div
+          key={q.id}
+          className="p-3 rounded-lg flex items-center justify-between border border-gray-700"
+        >
           <span>{q.id}</span>
           <div className="space-x-2">
-            <Button variant="secondary">Details</Button>
+            {/* <Link href={`/receipts/${q.id}`}> */}
+              <Button variant="secondary">Details</Button>
+            {/* </Link> */}
             <Button variant="default">Approve</Button>
             <Button variant="destructive">Reject</Button>
           </div>
@@ -178,10 +212,15 @@ function AdminReceiptsList() {
         </div>
       )}
       {approvedReceipts.map((q) => (
-        <div key={q.id} className="p-3 rounded-lg flex items-center justify-between border border-gray-700">
+        <div
+          key={q.id}
+          className="p-3 rounded-lg flex items-center justify-between border border-gray-700"
+        >
           <span>{q.id}</span>
           <div className="space-x-2">
-            <Button variant="secondary">Details</Button>
+            {/* <Link href={`/receipts/${q.id}`}> */}
+              <Button variant="secondary">Details</Button>
+            {/* </Link> */}
             <Button variant="secondary">Quotation</Button>
             <Button variant="secondary">Invoice</Button>
           </div>
@@ -197,10 +236,15 @@ function AdminReceiptsList() {
         </div>
       )}
       {rejectedReceipts.map((q) => (
-        <div key={q.id} className="p-3 rounded-lg flex items-center justify-between border border-gray-700">
+        <div
+          key={q.id}
+          className="p-3 rounded-lg flex items-center justify-between border border-gray-700"
+        >
           <span>{q.id}</span>
           <div className="space-x-2">
-            <Button variant="secondary">Details</Button>
+            {/* <Link href={`/receipts/${q.id}`}> */}
+              <Button variant="secondary">Details</Button>
+            {/* </Link> */}
           </div>
         </div>
       ))}

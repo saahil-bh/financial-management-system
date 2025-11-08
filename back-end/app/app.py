@@ -11,6 +11,23 @@ from sqlalchemy.orm import Session
 from decimal import Decimal
 from datetime import timedelta, date
 import uuid 
+from fastapi.middleware.cors import CORSMiddleware
+
+app = FastAPI()
+app.include_router(auth.router)
+
+origins = [
+    "http://localhost:3000",
+    "http://localhost",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app = FastAPI()
 app.include_router(auth.router) 
