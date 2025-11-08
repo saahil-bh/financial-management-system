@@ -3,51 +3,59 @@
 import { Button } from "@/components/ui/button";
 import * as React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation"; // Import useRouter
-import { useAuth } from "@/context/AuthContext"; // Import the Auth hook
-import api from "@/lib/api"; // Import the API client
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
 
-// Define the type for a quotation
+const API_URL = "http://localhost:8000";
+
 interface Quotation {
-  id: string;
+  q_id: number;
+  quotation_number: string;
+  customer_name: string;
   status: string;
-  // ... add any other fields your API returns
+  total: number;
+  tax: number;
+  u_id: string;
+  items: any[];
 }
 
 export default function QuotationsPage() {
-  const { user } = useAuth(); // Get the logged-in user from the context
-  const router = useRouter(); // Hook for navigation
+  const { user, token } = useAuth();
+  const router = useRouter();
   const [quotations, setQuotations] = React.useState<Quotation[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
 
-  // This effect runs when the 'user' object is loaded
-  React.useEffect(() => {
-    // Don't fetch data until we know who the user is
-    if (!user) {
-      return;
-    }
+  const fetchQuotations = React.useCallback(async () => {
+    if (!user || !token) return;
 
-    const fetchQuotations = async () => {
-      setIsLoading(true);
-      try {
-        // Determine which API endpoint to call based on the user's role
-        const endpoint = user.role === "Admin" 
-          ? "/quotations"    // Admin gets all quotations
-          : "/quotations/me";  // User gets only their own
-        
-        const response = await api.get(endpoint);
-        setQuotations(response.data);
-      } catch (err) {
-        console.error("Failed to fetch quotations:", err);
-      } finally {
-        setIsLoading(false);
+    setIsLoading(true);
+    setError(null);
+    try {
+      const endpoint =
+        user.role === "Admin" ? "/quotations" : "/quotations/me";
+      const response = await fetch(`${API_URL}${endpoint}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!response.ok) {
+        throw new Error("Failed to fetch quotations");
       }
-    };
+      const data = await response.json();
+      setQuotations(data);
+    } catch (err: any) {
+      console.error("Failed to fetch quotations:", err);
+      setError(err.message || "An unknown error occurred");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user, token]);
 
+  React.useEffect(() => {
     fetchQuotations();
-  }, [user]); // This dependency array ensures the effect re-runs if the user changes
+  }, [fetchQuotations]);
 
-  // --- Show a loading state while fetching or if user is not yet loaded ---
   if (isLoading || !user) {
     return (
       <div className="flex justify-center items-center min-h-[50vh]">
@@ -55,22 +63,27 @@ export default function QuotationsPage() {
       </div>
     );
   }
+  
+  if (error) {
+     return (
+      <div className="flex flex-col justify-center items-center min-h-[50vh]">
+        <p className="text-red-500">Error: {error}</p>
+        <Button onClick={fetchQuotations} className="mt-4">Try Again</Button>
+      </div>
+    );
+  }
 
-  // --- Once loaded, render the smart UI ---
   const isUser = user.role === "User";
 
   return (
     <div className="space-y-6">
-      {/* No more temporary UI toggle */}
-
       <div className="flex items-center justify-between bg-primary p-4 ">
         <h2 className="text-2xl font-bold text-primary-foreground">
-          {/* Use the real user's ID (or name, if you fetch it) */}
           Welcome back, {user.name}!
         </h2>
         {isUser && (
           <Button
-            onClick={() => router.push("/quotations/create")} // Use router.push
+            onClick={() => router.push("/quotations/create")}
             className="bg-white text-black font-bold hover:bg-gray-200"
           >
             Create Quotation
@@ -78,7 +91,7 @@ export default function QuotationsPage() {
         )}
         {!isUser && (
           <Button
-            onClick={() => router.push("/logs")} // Use router.push
+            onClick={() => router.push("/logs")}
             className="bg-white text-black font-bold hover:bg-gray-200"
           >
             Logs
@@ -91,27 +104,98 @@ export default function QuotationsPage() {
       </h3>
 
       <div className="space-y-4">
-        {/* Pass the fetched quotations down as a prop */}
         {isUser ? (
-          <UserQuotationList quotations={quotations} />
+          // --- 1. Pass token and onUpdate to User list ---
+          <UserQuotationList
+            quotations={quotations}
+            token={token}
+            onUpdate={fetchQuotations}
+          />
         ) : (
-          <AdminQuotationList quotations={quotations} />
+          <AdminQuotationList
+            quotations={quotations}
+            token={token}
+            onUpdate={fetchQuotations}
+          />
         )}
       </div>
     </div>
   );
 }
 
-// --- Regular User (Updated to accept props) ---
-function UserQuotationList({ quotations }: { quotations: Quotation[] }) {
-  // Filter the 'quotations' prop, not the old mock data
+// --- 2. UPDATED UserQuotationList ---
+interface UserListProps {
+  quotations: Quotation[];
+  token: string | null;
+  onUpdate: () => void;
+}
+
+function UserQuotationList({ quotations, token, onUpdate }: UserListProps) {
+  const [isUpdating, setIsUpdating] = React.useState<number | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+
+  // --- 3. NEW: Handler for "Submit" ---
+  const handleSubmit = async (quotationId: number) => {
+    if (!token) return;
+    setIsUpdating(quotationId);
+    setError(null);
+    try {
+      const response = await fetch(
+        `${API_URL}/quotation/${quotationId}/submit`,
+        {
+          method: "PUT",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.detail || "Failed to submit quotation.");
+      }
+      onUpdate(); // Refresh the list
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsUpdating(null);
+    }
+  };
+  
+  // --- 4. NEW: Handler for "Delete" ---
+  const handleDelete = async (quotationId: number) => {
+    // Note: You should add a confirmation modal here in a real app
+    // We are skipping it because window.confirm() is not allowed.
+    if (!token) return;
+    setIsUpdating(quotationId);
+    setError(null);
+    try {
+      const response = await fetch(
+        `${API_URL}/quotation/${quotationId}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.detail || "Failed to delete quotation.");
+      }
+      onUpdate(); // Refresh the list
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsUpdating(null);
+    }
+  };
+
   const draftQuotations = quotations.filter((q) => q.status === "Draft");
-  const pendingQuotations = quotations.filter((q) => q.status === "Pending");
+  const pendingQuotations = quotations.filter((q) => q.status === "Submitted");
   const approvedQuotations = quotations.filter((q) => q.status === "Approved");
   const rejectedQuotations = quotations.filter((q) => q.status === "Rejected");
 
   return (
     <>
+      {/* Show error at the top */}
+      {error && <p className="text-red-500 text-center">{error}</p>}
+
       {/* Drafts */}
       {draftQuotations.length > 0 && (
         <div className="bg-gray-700 p-3">
@@ -120,41 +204,73 @@ function UserQuotationList({ quotations }: { quotations: Quotation[] }) {
       )}
       {draftQuotations.map((q) => (
         <div
-          key={q.id}
+          key={q.q_id}
           className="p-3 rounded-lg flex items-center justify-between border border-gray-700"
         >
-          <span>{q.id}</span>
+          <span>{q.quotation_number}</span>
+          <span>{q.customer_name}</span>
           <div className="space-x-2">
-            <Link href={`/quotations/${q.id}`}>
-              <Button variant="secondary">Details</Button>
+            <Link href={`/quotations/${q.q_id}`}>
+              <Button variant="secondary" disabled={isUpdating === q.q_id}>
+                Details
+              </Button>
             </Link>
-            <Button variant="secondary">Edit</Button>
-            <Button variant="default">Submit</Button>
-            <Button variant="destructive">Delete</Button>
+            {/* --- 5. FIX: "Edit" button is now a Link --- */}
+            <Link href={`/quotations/edit/${q.q_id}`}>
+              <Button variant="secondary" disabled={isUpdating === q.q_id}>
+                Edit
+              </Button>
+            </Link>
+            {/* --- 6. FIX: "Submit" button now works --- */}
+            <Button
+              variant="default"
+              onClick={() => handleSubmit(q.q_id)}
+              disabled={isUpdating === q.q_id}
+            >
+              {isUpdating === q.q_id ? "..." : "Submit"}
+            </Button>
+            {/* --- 7. FIX: "Delete" button now works --- */}
+            <Button
+              variant="destructive"
+              onClick={() => handleDelete(q.q_id)}
+              disabled={isUpdating === q.q_id}
+            >
+              {isUpdating === q.q_id ? "..." : "Delete"}
+            </Button>
           </div>
         </div>
       ))}
 
-      {/* Pending */}
+      {/* Submitted (Pending) */}
       {pendingQuotations.length > 0 && (
-        <div className="bg-chart-4 p-3"> {/* Note: You have a custom color 'bg-chart-4' here */}
+        <div className="bg-chart-4 p-3">
           <span className="font-bold text-lg text-warning-foreground">
-            Pending
+            Submitted
           </span>
         </div>
       )}
       {pendingQuotations.map((q) => (
         <div
-          key={q.id}
+          key={q.q_id}
           className="p-3 rounded-lg flex items-center justify-between border border-gray-700"
         >
-          <span>{q.id}</span>
+          <span>{q.quotation_number}</span>
+          <span>{q.customer_name}</span>
           <div className="space-x-2">
-            <Link href={`/quotations/${q.id}`}>
-              <Button variant="secondary">Details</Button>
+            <Link href={`/quotations/${q.q_id}`}>
+              <Button variant="secondary" disabled={isUpdating === q.q_id}>
+                Details
+              </Button>
             </Link>
-            <Button variant="secondary">Edit</Button>
-            <Button variant="destructive">Delete</Button>
+            {/* You can only edit Drafts, so this button is removed */}
+            {/* <Button variant="secondary">Edit</Button> */}
+            <Button
+              variant="destructive"
+              onClick={() => handleDelete(q.q_id)}
+              disabled={isUpdating === q.q_id}
+            >
+              {isUpdating === q.q_id ? "..." : "Delete"}
+            </Button>
           </div>
         </div>
       ))}
@@ -169,12 +285,13 @@ function UserQuotationList({ quotations }: { quotations: Quotation[] }) {
       )}
       {approvedQuotations.map((q) => (
         <div
-          key={q.id}
+          key={q.q_id}
           className="p-3 rounded-lg flex items-center justify-between border border-gray-700"
         >
-          <span>{q.id}</span>
+          <span>{q.quotation_number}</span>
+          <span>{q.customer_name}</span>
           <div className="space-x-2">
-            <Link href={`/quotations/${q.id}`}>
+            <Link href={`/quotations/${q.q_id}`}>
               <Button variant="secondary">Details</Button>
             </Link>
             <Button variant="secondary">Invoice</Button>
@@ -192,14 +309,22 @@ function UserQuotationList({ quotations }: { quotations: Quotation[] }) {
       )}
       {rejectedQuotations.map((q) => (
         <div
-          key={q.id}
+          key={q.q_id}
           className="p-3 rounded-lg flex items-center justify-between border border-gray-700"
         >
-          <span>{q.id}</span>
+          <span>{q.quotation_number}</span>
+          <span>{q.customer_name}</span>
           <div className="space-x-2">
-            <Link href={`/quotations/${q.id}`}>
+            <Link href={`/quotations/${q.q_id}`}>
               <Button variant="secondary">Details</Button>
             </Link>
+            <Button
+              variant="destructive"
+              onClick={() => handleDelete(q.q_id)}
+              disabled={isUpdating === q.q_id}
+            >
+              {isUpdating === q.q_id ? "..." : "Delete"}
+            </Button>
           </div>
         </div>
       ))}
@@ -207,40 +332,102 @@ function UserQuotationList({ quotations }: { quotations: Quotation[] }) {
   );
 }
 
-// --- Admins (Updated to accept props) ---
-function AdminQuotationList({ quotations }: { quotations: Quotation[] }) {
-  // Filter the 'quotations' prop, not the old mock data
-  const pendingQuotations = quotations.filter((q) => q.status === "Pending");
+// --- AdminQuotationList (This component was already correct) ---
+interface AdminListProps {
+  quotations: Quotation[];
+  token: string | null;
+  onUpdate: () => void;
+}
+
+function AdminQuotationList({ quotations, token, onUpdate }: AdminListProps) {
+  const [isUpdating, setIsUpdating] = React.useState<number | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const handleUpdateStatus = async (
+    quotationId: number,
+    newStatus: "Approved" | "Rejected"
+  ) => {
+    if (!token) {
+      setError("Not authenticated");
+      return;
+    }
+
+    setIsUpdating(quotationId);
+    setError(null);
+
+    try {
+      const response = await fetch(
+        `${API_URL}/quotation/${quotationId}/approve?status=${newStatus}`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.detail || `Failed to ${newStatus.toLowerCase()} quotation.`);
+      }
+
+      onUpdate(); 
+      
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsUpdating(null);
+    }
+  };
+
+  const pendingQuotations = quotations.filter((q) => q.status === "Submitted");
   const approvedQuotations = quotations.filter((q) => q.status === "Approved");
   const rejectedQuotations = quotations.filter((q) => q.status === "Rejected");
 
   return (
     <>
-      {/* Pending */}
+      {error && <p className="text-red-500 text-center">{error}</p>}
+      
+      {/* Submitted (Pending) */}
       {pendingQuotations.length > 0 && (
-        <div className="bg-chart-4 p-3"> {/* Note: You have a custom color 'bg-chart-4' here */}
+        <div className="bg-chart-4 p-3">
           <span className="font-bold text-lg text-warning-foreground">
-            Pending
+            Submitted
           </span>
         </div>
       )}
       {pendingQuotations.map((q) => (
         <div
-          key={q.id}
+          key={q.q_id}
           className="p-3 rounded-lg flex items-center justify-between border border-gray-700"
         >
-          <span>{q.id}</span>
+          <span>{q.quotation_number}</span>
+          <span>{q.customer_name}</span>
           <div className="space-x-2">
-            <Link href={`/quotations/${q.id}`}>
-              <Button variant="secondary">Details</Button>
+            <Link href={`/quotations/${q.q_id}`}>
+              <Button variant="secondary" disabled={isUpdating === q.q_id}>
+                Details
+              </Button>
             </Link>
-            <Button variant="default">Approve</Button>
-            <Button variant="destructive">Reject</Button>
+            <Button
+              variant="default"
+              onClick={() => handleUpdateStatus(q.q_id, "Approved")}
+              disabled={isUpdating === q.q_id}
+            >
+              {isUpdating === q.q_id ? "..." : "Approve"}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => handleUpdateStatus(q.q_id, "Rejected")}
+              disabled={isUpdating === q.q_id}
+            >
+              {isUpdating === q.q_id ? "..." : "Reject"}
+            </Button>
           </div>
         </div>
       ))}
 
-      {/* Approved */}
+      {/* Approved (Unchanged) */}
       {approvedQuotations.length > 0 && (
         <div className="bg-primary p-3">
           <span className="font-bold text-lg text-primary-foreground">
@@ -250,12 +437,13 @@ function AdminQuotationList({ quotations }: { quotations: Quotation[] }) {
       )}
       {approvedQuotations.map((q) => (
         <div
-          key={q.id}
+          key={q.q_id}
           className="p-3 rounded-lg flex items-center justify-between border border-gray-700"
         >
-          <span>{q.id}</span>
+          <span>{q.quotation_number}</span>
+          <span>{q.customer_name}</span>
           <div className="space-x-2">
-            <Link href={`/quotations/${q.id}`}>
+            <Link href={`/quotations/${q.q_id}`}>
               <Button variant="secondary">Details</Button>
             </Link>
             <Button variant="secondary">Invoice</Button>
@@ -263,7 +451,7 @@ function AdminQuotationList({ quotations }: { quotations: Quotation[] }) {
         </div>
       ))}
 
-      {/* Rejected */}
+      {/* Rejected (Unchanged) */}
       {rejectedQuotations.length > 0 && (
         <div className="bg-destructive p-3">
           <span className="font-bold text-lg text-destructive-foreground">
@@ -273,12 +461,13 @@ function AdminQuotationList({ quotations }: { quotations: Quotation[] }) {
       )}
       {rejectedQuotations.map((q) => (
         <div
-          key={q.id}
+          key={q.q_id}
           className="p-3 rounded-lg flex items-center justify-between border border-gray-700"
         >
-          <span>{q.id}</span>
+          <span>{q.quotation_number}</span>
+          <span>{q.customer_name}</span>
           <div className="space-x-2">
-            <Link href={`/quotations/${q.id}`}>
+            <Link href={`/quotations/${q.q_id}`}>
               <Button variant="secondary">Details</Button>
             </Link>
           </div>

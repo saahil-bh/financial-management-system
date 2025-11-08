@@ -61,6 +61,7 @@ class QuotationCreate(BaseModel):
     customer_address: str
     customer_email: str
     itemlist: List[QuotationItemBase]
+    status: str | None = None
     
     class Config:
         from_attributes = True
@@ -80,7 +81,7 @@ class QuotationBase(BaseModel):
   customer_name: str
   customer_address: str 
   customer_email: str
-  user_id: uuid.UUID
+  u_id: uuid.UUID
   status: str
   total: float
   tax: float
@@ -89,7 +90,7 @@ class QuotationBase(BaseModel):
      from_attributes = True
 
 class QuotationResponse(QuotationBase):
-    user_id: uuid.UUID
+    u_id: uuid.UUID
     items: List[QuotationItemResponse] = []
 
 # Invoice
@@ -171,6 +172,10 @@ def create_quotation(quotation_data: QuotationCreate, db: DBDependency, current_
        
   tax_amount = subtotal * vat
   grand_total = subtotal + tax_amount
+
+  new_status = 'Draft'
+  if quotation_data.status == 'Submitted':
+     new_status = 'Submitted'
     
   db_quotation = db_model.Quotation(
     u_id = current_user.u_id,
@@ -179,7 +184,8 @@ def create_quotation(quotation_data: QuotationCreate, db: DBDependency, current_
     customer_address = quotation_data.customer_address,
     customer_email = quotation_data.customer_email,
     total = grand_total,
-    tax = tax_amount
+    tax = tax_amount,
+    status = new_status
     )
   
   try:
@@ -195,8 +201,8 @@ def create_quotation(quotation_data: QuotationCreate, db: DBDependency, current_
         )
       
       db.add(db_item)
-      db.commit()
-      db.refresh(db_quotation)
+    db.commit()
+    db.refresh(db_quotation)
   
   except Exception as e:
     db.rollback()
@@ -208,6 +214,21 @@ def create_quotation(quotation_data: QuotationCreate, db: DBDependency, current_
   db_quotation.tax = float(db_quotation.tax)
     
   return db_quotation
+
+@app.get("/quotations/me", response_model=List[QuotationResponse])
+def get_user_quotations(db: DBDependency, current_user: CurrentUser):
+    quotations = db.query(db_model.Quotation).filter(
+        db_model.Quotation.u_id == current_user.u_id
+    ).all()
+    
+    return quotations
+
+
+@app.get("/quotations", response_model=List[QuotationResponse])
+def get_all_quotations(db: DBDependency, current_user: Annotated[db_model.User, Depends(check_user_role('Admin'))]):
+    quotations = db.query(db_model.Quotation).all()
+    
+    return quotations
 
 @app.get("/quotation/{quotation_id}", response_model=QuotationResponse, status_code=status.HTTP_200_OK)
 def get_quotation(quotation_id: int, db: DBDependency):
