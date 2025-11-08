@@ -1,54 +1,144 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { PDFViewer } from "@react-pdf/renderer";
 import { QuotationDocument } from "@/components/pdf/QuotationDocument";
+import { useAuth } from "@/context/AuthContext";
+import { Button } from "@/components/ui/button";
 
-// STATIC COMPANY INFORMATION
+// --- API URL ---
+const API_URL = "http://localhost:8000";
+
+// --- STATIC COMPANY INFORMATION ---
+// IMPORTANT: @react-pdf cannot use relative paths like "/MyFinance.png".
+// It needs an absolute URL. I've used a placeholder.
 const STATIC_COMPANY_INFO = {
   name: "MyFinan$e Solutions",
   address: "Faculty of ICT, Mahidol University",
   email: "saahil@myfinance.com",
-  logoUrl: "/MyFinance.png",
+  logoUrl: "https://placehold.co/150x50/10B981/FFF?text=MyFinan$e", // Use an absolute URL
   taxID: "420420",
 };
 
-const mockQuotationData = {
-  id: "Q-20251105-001", // This ID will be overridden
+// --- Helper Interfaces ---
+
+// 1. This matches the JSON response from your backend's API
+interface ApiQuotationResponse {
+  q_id: number;
+  quotation_number: string;
+  customer_name: string;
+  customer_address: string;
+  customer_email: string;
+  u_id: string;
+  status: string;
+  total: number;
+  tax: number;
+  created_at: string; // This will be a full timestamp string
+  items: {
+    item_id: number;
+    description: string;
+    quantity: number;
+    unit_price: string; // Comes as string, needs to be parsed
+    total: string;
+  }[];
+}
+
+// 2. This matches the props required by your <QuotationDocument> component
+interface PdfData {
+  id: string;
   customerInfo: {
-    name: "Phurinat Intawichian",
-    address: "515 Uniloft Salaya",
-    email: "phurinat.int@student.mahidol.edu",
-  },
-  date: "November 5, 2025",
-  validUntil: "December 5, 2025",
-  lineItems: [
-    { id: 1, description: "Dildo", qty: 1, unitPrice: 5000 },
-    { id: 2, description: "George Floyd Inhaler", qty: 69, unitPrice: 50 },
-    { id: 3, description: "Flight to Epstein Island", qty: 1, unitPrice: 299999 },
-    { id: 4, description: "Baby Oil", qty: 10000, unitPrice: 150 }, // Fixed duplicate ID
-  ],
-  vatRate: 0.07,
-};
+    name: string;
+    address: string;
+    email: string;
+  };
+  date: string;
+  validUntil: string;
+  lineItems: {
+    id: number;
+    description: string;
+    qty: number;
+    unitPrice: number;
+  }[];
+  vatRate: number;
+}
 
 export default function QuotationPdfPage() {
   const params = useParams();
-  const id = params.id as string; // This is the correct ID from the URL
+  const router = useRouter();
+  const { token } = useAuth();
+  const id = params.id as string; // The q_id from the URL
 
   const [isClient, setIsClient] = useState(false);
+  const [pdfData, setPdfData] = useState<PdfData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
     setIsClient(true);
   }, []);
 
-  // --- THIS IS THE FIX ---
-  // 1. Create a new data object for the PDF
-  const pdfData = {
-    ...mockQuotationData, // 2. Copy all the mock data
-    id: id, // 3. OVERRIDE the 'id' with the one from the URL
-  };
-  // --- END OF FIX ---
+  // --- 3. Fetch and Map Data ---
+  useEffect(() => {
+    if (!id || !token) {
+      return; // Wait for ID and token
+    }
 
-  if (!isClient) {
+    const fetchAndFormatQuotation = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const response = await fetch(`${API_URL}/quotation/${id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!response.ok) {
+          const err = await response.json();
+          throw new Error(err.detail || "Failed to fetch quotation details.");
+        }
+
+        const data: ApiQuotationResponse = await response.json();
+
+        // --- 4. Map API data to PDF data format ---
+        const subtotal = data.total - data.tax;
+        const vatRate = subtotal > 0 ? data.tax / subtotal : 0.07; // Calculate VAT rate
+
+        const createdDate = new Date(data.created_at);
+        const validDate = new Date(createdDate);
+        validDate.setDate(createdDate.getDate() + 30); // Set validity for 30 days
+
+        const formattedLineItems = data.items.map((item) => ({
+          id: item.item_id,
+          description: item.description,
+          qty: item.quantity, // Map quantity -> qty
+          unitPrice: parseFloat(item.unit_price), // Map unit_price -> unitPrice
+        }));
+
+        const mappedData: PdfData = {
+          id: data.quotation_number, // Use the string ID
+          customerInfo: {
+            name: data.customer_name,
+            address: data.customer_address,
+            email: data.customer_email,
+          },
+          date: createdDate.toLocaleDateString(),
+          validUntil: validDate.toLocaleDateString(),
+          lineItems: formattedLineItems,
+          vatRate: vatRate,
+        };
+
+        setPdfData(mappedData);
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAndFormatQuotation();
+  }, [id, token]); // Re-run if ID or token changes
+
+  // --- 5. Handle Loading/Error/Client States ---
+  if (!isClient || isLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
         <p>Loading PDF...</p>
@@ -56,13 +146,27 @@ export default function QuotationPdfPage() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen">
+        <p className="text-red-500 mb-4">Error: {error}</p>
+        <Button onClick={() => router.back()}>Go Back</Button>
+      </div>
+    );
+  }
+
+  if (!pdfData) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <p>Could not load quotation data.</p>
+      </div>
+    );
+  }
+
+  // --- 6. Render PDF ---
   return (
     <PDFViewer style={{ width: "100%", height: "100vh" }}>
-      {/* 4. Pass the new, corrected pdfData object as the prop */}
-      <QuotationDocument
-        data={pdfData}
-        companyInfo={STATIC_COMPANY_INFO}
-      />
+      <QuotationDocument data={pdfData} companyInfo={STATIC_COMPANY_INFO} />
     </PDFViewer>
   );
 }

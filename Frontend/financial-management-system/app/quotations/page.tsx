@@ -262,8 +262,11 @@ function UserQuotationList({ quotations, token, onUpdate }: UserListProps) {
                 Details
               </Button>
             </Link>
-            {/* You can only edit Drafts, so this button is removed */}
-            {/* <Button variant="secondary">Edit</Button> */}
+            <Link href={`/quotations/edit/${q.q_id}`}>
+              <Button variant="secondary" disabled={isUpdating === q.q_id}>
+                Edit
+              </Button>
+            </Link>
             <Button
               variant="destructive"
               onClick={() => handleDelete(q.q_id)}
