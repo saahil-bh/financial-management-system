@@ -30,6 +30,10 @@ class User(Base):
 class Quotation(Base):
     __tablename__ = "Quotations"
     q_id = Column(Integer, primary_key=True, index=True, name="q_id")
+    quotation_number = Column(String(50), nullable=False, default="Q-YYYYMMDD-000")
+    customer_name = Column(String(100), nullable=False)
+    customer_address = Column(Text, nullable=False)
+    customer_email = Column(String(150), nullable=False)
     u_id = Column(UUID(as_uuid=True), ForeignKey("Users.u_id", ondelete="CASCADE"))
     status = Column(String(30), nullable=False, default='Draft')
     total = Column(Numeric(12, 2), nullable=False)
@@ -73,7 +77,7 @@ class Receipt(Base):
     __tablename__ = "Receipts"
     r_id = Column(Integer, primary_key=True, index=True, name="r_id")
     i_id = Column(Integer, ForeignKey("Invoices.i_id", ondelete="SET NULL"), nullable=True)
-    payment_date = Column(String, nullable=False)
+    payment_date = Column(Date, nullable=False)
     amount = Column(Numeric(12, 2), nullable=False)
     status = Column(String(20), nullable=False, default='Pending')
 
