@@ -21,7 +21,6 @@ except KeyError:
     raise RuntimeError("API keys (LINE/SendGrid) not found in environment variables.")
 
 # --- Internal Functions ---
-
 def _send_line_notification(line_user_id: str, message_text: str):
     """Internal function to send a LINE push message."""
     if not line_user_id:
@@ -44,11 +43,12 @@ def _send_line_notification(line_user_id: str, message_text: str):
 
 def _send_email_notification(to_email: str, subject: str, message_text: str):
     """Internal function to send an Email via SendGrid."""
+    html_message = message_text.replace('\n', '<br>') # Move expression out
     message = Mail(
         from_email=SENDER_EMAIL,
         to_emails=to_email,
         subject=subject,
-        html_content=f"<p>{message_text.replace('\n', '<br>')}</p>"
+        html_content=f"<p>{html_message}</p>" # Use the pre-computed value
     )
     try:
         response = sg.send(message)

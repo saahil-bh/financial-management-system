@@ -14,6 +14,7 @@ class User(Base):
     role = Column(String(10), nullable=False)
     password_hash = Column(String(255), nullable=False)
     address = Column(Text, nullable=True)
+    line_user_id = Column((String(255)), nullable=True)
     
     __table_args__ = (
         CheckConstraint(role.in_(['Admin', 'User']), name='ck_user_role'),
