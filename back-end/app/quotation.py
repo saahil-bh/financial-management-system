@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from starlette import status
 from . import db_model
 
-router = APIRouter(prefix='/quotation', tags=['quotation'])
+router = APIRouter(prefix='/quotations', tags=['quotations'])
 
 DBDependency = Annotated[Session, Depends(get_db)]
 CurrentUser = Annotated[db_model.User, Depends(get_current_user)]

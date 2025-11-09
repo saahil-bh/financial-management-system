@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from starlette import status
 from . import db_model
 
-router = APIRouter(prefix='/invoice', tags=['invoice'])
+router = APIRouter(prefix='/invoices', tags=['invoices'])
 
 DBDependency = Annotated[Session, Depends(get_db)]
 CurrentUser = Annotated[db_model.User, Depends(get_current_user)]
