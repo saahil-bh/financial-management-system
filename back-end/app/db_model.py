@@ -55,8 +55,13 @@ class Invoice(Base):
     __tablename__ = "Invoices"
     i_id = Column(Integer, primary_key=True, index=True, name="i_id")
     q_id = Column(Integer, ForeignKey("Quotations.q_id", ondelete="SET NULL"), nullable=True)
+    invoice_number = Column(String(50), nullable=False, default="Q-YYYYMMDD-000")
+    customer_name = Column(String(100), nullable=False)
+    customer_address = Column(Text, nullable=False)
+    payment_term = Column(String(150), nullable=False)
     status = Column(String(30), nullable=False, default='Draft')
     total = Column(Numeric(12, 2), nullable=False)
+    tax = Column(Numeric(6, 2), default=0.00)
     due_date = Column(Date, nullable=False, default=func.now())
     created_at = Column(DateTime(timezone=True), nullable=False, default=func.now())
     updated_at = Column(DateTime(timezone=True), nullable=False, default=func.now(), onupdate=func.now())
@@ -149,7 +154,6 @@ class QuotationItem(Base):
     total = Column(Numeric(12, 2), Computed("quantity * unit_price", persisted=True))
 
     quotation = relationship("Quotation", back_populates="items")
-
 
 class InvoiceItem(Base):
     __tablename__ = "InvoiceItems"

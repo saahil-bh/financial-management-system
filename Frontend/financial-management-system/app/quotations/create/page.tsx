@@ -51,7 +51,7 @@ export default function CreateQuotationPage() {
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  // --- Auto-generate a suggested Quotation ID on load ---
+  // --- Auto-generate a suggested Quotation Number on load ---
   React.useEffect(() => {
     const suggestedId = `Q-${getFormattedDate(new Date())}-`;
     setQuotationId(suggestedId);

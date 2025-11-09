@@ -94,16 +94,36 @@ class QuotationResponse(QuotationBase):
     items: List[QuotationItemResponse] = []
 
 # Invoice
-class InvoiceCreate(BaseModel):
-    q_id: int
-    total: float
+class InvoiceItemBase(BaseModel):
+   description: str
+   quantity: int
+   unit_price: float
 
+class InvoiceCreate(BaseModel):
+    invoice_number: str
+    customer_name: str
+    customer_address: str
+    payment_term: str
+    itemlist: List[InvoiceItemBase]
+    status: str | None = None
+    
+    class Config:
+        from_attributes = True
+
+class InvoiceItemResponse(InvoiceItemBase):
+    item_id: int
+    total: float
+    
     class Config:
         from_attributes = True
 
 class InvoiceBase(BaseModel):
     i_id: int
     q_id: int
+    invoice_number: str
+    customer_name: str
+    customer_address: str
+    payment_term: str
     status: str
     total: float
     u_id: uuid.UUID | None = None
@@ -113,6 +133,7 @@ class InvoiceBase(BaseModel):
 
 class InvoiceResponse(InvoiceBase):
     i_id: int
+    items: List[InvoiceItemResponse] = []
 
 # Receipt
 class ReceiptCreate(BaseModel):
@@ -147,6 +168,41 @@ vat = Decimal('0.07')
 def hi():
   return {"message": "Hi"}
 
+
+def quoatation2invoice(quotation: db_model.Quotation, db: Session):
+
+    check_invoice = db.query(db_model.Invoice).filter(db_model.Invoice.q_id == quotation.q_id).first()
+    
+    if check_invoice:
+        print(f"Invoice for Quotation ID {quotation.q_id} already exists. No Worry")
+        return check_invoice
+
+    db_invoice = db_model.Invoice(
+        q_id = quotation.q_id, 
+        u_id = quotation.u_id,
+        invoice_number = f"INV-{quotation.quotation_number}",
+        customer_name = quotation.customer_name,
+        customer_address = quotation.customer_address,
+        payment_term = "Net 30 Days",
+        status = 'Draft',
+        total = quotation.total,
+        tax = quotation.tax
+    )
+    
+    db.add(db_invoice)
+    db.flush()
+    
+    for item in quotation.items: 
+        db_item = db_model.InvoiceItem(
+            i_id = db_invoice.i_id,
+            description = item.description,
+            quantity = item.quantity,
+            unit_price = item.unit_price 
+        )
+        db.add(db_item)
+        
+    print(f"Successfully created Invoice NUm {db_invoice.invoice_number}!!!")
+    return db_invoice
 
 @app.get("/users/me", response_model=UserBase)
 def read_users_me(current_user: CurrentUser):
@@ -222,7 +278,6 @@ def get_user_quotations(db: DBDependency, current_user: CurrentUser):
     ).all()
     
     return quotations
-
 
 @app.get("/quotations", response_model=List[QuotationResponse])
 def get_all_quotations(db: DBDependency, current_user: Annotated[db_model.User, Depends(check_user_role('Admin'))]):
@@ -362,6 +417,7 @@ def quotation_approve(quotation_id: int, status: str, db: DBDependency, current_
     
   if status == 'Approved':
     try:
+      quoatation2invoice(quotation, db)
       quotation.status = 'Approved'
       db.commit()
       db.refresh(quotation)
@@ -383,32 +439,67 @@ def quotation_approve(quotation_id: int, status: str, db: DBDependency, current_
       return quotation
 
 @app.post("/invoice", response_model=InvoiceResponse, status_code=status.HTTP_201_CREATED)
-def create_invoice(invoice: InvoiceCreate, db: DBDependency, current_user: Annotated[db_model.User, Depends(check_user_role('User'))]):    
+def create_invoice(invoice_data: InvoiceCreate, db: DBDependency, current_user: Annotated[db_model.User, Depends(check_user_role('User'))]):    
   
-  check_qid = db.query(db_model.Quotation).filter(db_model.Quotation.q_id == invoice.q_id).first()
-  
-  if not check_qid:
-    raise HTTPException(status_code=404, detail=f"Quotation ID:{invoice.q_id} not found.")
+  subtotal = Decimal('0.00')
+    
+  if not invoice_data.itemlist:
+    raise HTTPException(status_code=400, detail="Invoice must contain at least one item.")
+        
+  for item in invoice_data.itemlist:
+    if item.quantity <= 0:
+      raise HTTPException(status_code=400, detail="Item quantity must be greater than zero.")
+    
+    quantity = Decimal(str(item.quantity))
+    unit_price = Decimal(str(item.unit_price))
+       
+    each_item_total = quantity * unit_price
+    subtotal += each_item_total
+       
+  tax_amount = subtotal * vat
+  grand_total = subtotal + tax_amount
 
-  if check_qid.status != "Approved": #fixed version
-     raise HTTPException(status_code=400, detail=f"Quotation ID:{invoice.q_id} has not been Approved.")
-  
+  new_status = 'Draft'
+
+  if invoice_data.status == 'Submitted':
+     new_status = 'Submitted'
+    
   db_invoice = db_model.Invoice(
-    q_id = invoice.q_id,
-    total = Decimal(str(invoice.total)),
-    u_id = current_user.u_id
+     q_id = invoice_data.q_id, 
+     u_id = invoice_data.u_id,
+     invoice_number = invoice_data.invoice_number,
+     customer_name = invoice_data.customer_name,
+     customer_address = invoice_data.customer_address,
+     payment_term = "Net 30 Days",
+     status = new_status,
+     total = grand_total,
+     tax = tax_amount
     )
   
   try:
     db.add(db_invoice)
+    db.flush()
+    
+    for item_data in invoice_data.itemlist:
+      db_item = db_model.InvoiceItem(
+        q_id = invoice_data.q_id,
+        description = item_data.description,
+        quantity = item_data.quantity,
+        unit_price = Decimal(str(item_data.unit_price))
+        )
+      
+      db.add(db_item)
     db.commit()
-    db.refresh(db_invoice) 
+    db.refresh(db_invoice)
+  
   except Exception as e:
     db.rollback()
-    print(f"Error inserting quotation: {e}") 
-    raise HTTPException(status_code=500, detail="Could not create invoice due to a database error.")
-  
+    print(f"Error inserting quotation and items: {e}") 
+    raise HTTPException(status_code=500, detail="Could not create quotation due to a database error.")
+
+
   db_invoice.total = float(db_invoice.total)
+  db_invoice.tax = float(db_invoice.tax)
     
   return db_invoice
 
