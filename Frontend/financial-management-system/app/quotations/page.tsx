@@ -33,7 +33,7 @@ export default function QuotationsPage() {
     setError(null);
     try {
       const endpoint =
-        user.role === "Admin" ? "/quotations" : "/quotations/me";
+        user.role === "Admin" ? "/quotation" : "/quotation/me";
       const response = await fetch(`${API_URL}${endpoint}`, {
         headers: {
           Authorization: `Bearer ${token}`,
