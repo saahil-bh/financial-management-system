@@ -265,7 +265,7 @@ def delete_quotation(quotation_id: int, db: DBDependency, current_user: Annotate
        raise HTTPException(status_code=404, detail="Quotation not found")
 
     
-    if quotation.status not in ['Draft', 'Cancelled', 'Rejected']:
+    if quotation.status is ['Approved']:
         raise HTTPException(
           status_code=400, detail=f"Quotation can not be delete. Current status is '{quotation.status}'."
         )
