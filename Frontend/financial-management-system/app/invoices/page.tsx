@@ -8,8 +8,6 @@ import { useAuth } from "@/context/AuthContext";
 
 const API_URL = "http://localhost:8000";
 
-// --- 1. UPDATED INVOICE INTERFACE ---
-// This now matches your backend's InvoiceResponse model
 interface Invoice {
   i_id: number;
   q_id: number | null;
@@ -23,20 +21,19 @@ interface Invoice {
 }
 
 export default function InvoicesPage() {
-  const { user, token } = useAuth(); // Get token
+  const { user, token } = useAuth();
   const router = useRouter();
   const [invoices, setInvoices] = React.useState<Invoice[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
-  // --- 2. UPDATED fetchInvoices ---
   const fetchInvoices = React.useCallback(async () => {
     if (!user || !token) return;
 
     setIsLoading(true);
     setError(null);
     try {
-      // --- FIX: Use correct endpoints ---
+      // Use correct endpoints based on user role
       const endpoint =
         user.role === "Admin" ? "/invoice" : "/invoice/me";
       
@@ -71,7 +68,7 @@ export default function InvoicesPage() {
   }
   
   if (error) {
-     return (
+      return (
       <div className="flex flex-col justify-center items-center min-h-[50vh]">
         <p className="text-red-500">Error: {error}</p>
         <Button onClick={fetchInvoices} className="mt-4">Try Again</Button>
@@ -111,7 +108,6 @@ export default function InvoicesPage() {
 
       <div className="space-y-4">
         {isUser ? (
-          // --- 3. Pass token and onUpdate ---
           <UserInvoiceList
             invoices={invoices}
             token={token}
@@ -129,7 +125,7 @@ export default function InvoicesPage() {
   );
 }
 
-// --- 4. UPDATED UserInvoiceList ---
+// --- UPDATED UserInvoiceList ---
 interface UserListProps {
   invoices: Invoice[];
   token: string | null;
@@ -189,7 +185,6 @@ function UserInvoiceList({ invoices, token, onUpdate }: UserListProps) {
     }
   };
 
-  // --- FIX: Statuses match DB model ---
   const draftInvoices = invoices.filter((inv) => inv.status === "Draft");
   const pendingInvoices = invoices.filter((inv) => inv.status === "Submitted");
   const approvedInvoices = invoices.filter((inv) => inv.status === "Approved");
@@ -214,16 +209,21 @@ function UserInvoiceList({ invoices, token, onUpdate }: UserListProps) {
           <span>{inv.invoice_number}</span>
           <span>{inv.customer_name}</span>
           <div className="space-x-2">
-            <Link href={`/invoices/${inv.i_id}`}>
+            
+            {/* --- 1. FIX: Use invoice_number for Details link --- */}
+            <Link href={`/invoices/number/${inv.invoice_number}`}>
               <Button variant="secondary" disabled={isUpdating === inv.i_id}>
                 Details
               </Button>
             </Link>
-            <Link href={`/invoices/edit/${inv.i_id}`}>
+            
+            {/* --- 2. FIX: Use invoice_number for Edit link --- */}
+            <Link href={`/invoices/edit/${inv.invoice_number}`}>
               <Button variant="secondary" disabled={isUpdating === inv.i_id}>
                 Edit
               </Button>
             </Link>
+            
             <Button
               variant="default"
               onClick={() => handleSubmit(inv.i_id)}
@@ -258,9 +258,12 @@ function UserInvoiceList({ invoices, token, onUpdate }: UserListProps) {
           <span>{inv.invoice_number}</span>
           <span>{inv.customer_name}</span>
           <div className="space-x-2">
-            <Link href={`/invoices/${inv.i_id}`}>
+            
+            {/* --- 3. FIX: Use invoice_number for Details link --- */}
+            <Link href={`/invoices/number/${inv.invoice_number}`}>
               <Button variant="secondary">Details</Button>
             </Link>
+
           </div>
         </div>
       ))}
@@ -281,9 +284,13 @@ function UserInvoiceList({ invoices, token, onUpdate }: UserListProps) {
           <span>{inv.invoice_number}</span>
           <span>{inv.customer_name}</span>
           <div className="space-x-2">
-            <Link href={`/invoices/${inv.i_id}`}>
+
+            {/* --- 4. FIX: Use invoice_number for Details link --- */}
+            <Link href={`/invoices/number/${inv.invoice_number}`}>
               <Button variant="secondary">Details</Button>
             </Link>
+
+            {/* This link is to the Quotation by ID, which is correct based on your quotation.py */}
             {inv.q_id && <Link href={`/quotations/${inv.q_id}`}>
               <Button variant="secondary">Quotation</Button>
             </Link>}
@@ -301,16 +308,19 @@ function UserInvoiceList({ invoices, token, onUpdate }: UserListProps) {
         </div>
       )}
       {paidInvoices.map((inv) => (
-         <div
+          <div
           key={inv.i_id}
           className="p-3 rounded-lg flex items-center justify-between border border-gray-700"
         >
           <span>{inv.invoice_number}</span>
           <span>{inv.customer_name}</span>
-           <div className="space-x-2">
-            <Link href={`/invoices/${inv.i_id}`}>
+            <div className="space-x-2">
+
+            {/* --- 5. FIX: Use invoice_number for Details link --- */}
+            <Link href={`/invoices/number/${inv.invoice_number}`}>
               <Button variant="secondary">Details</Button>
             </Link>
+
           </div>
         </div>
       ))}
@@ -331,9 +341,12 @@ function UserInvoiceList({ invoices, token, onUpdate }: UserListProps) {
           <span>{inv.invoice_number}</span>
           <span>{inv.customer_name}</span>
           <div className="space-x-2">
-            <Link href={`/invoices/${inv.i_id}`}>
+
+            {/* --- 6. FIX: Use invoice_number for Details link --- */}
+            <Link href={`/invoices/number/${inv.invoice_number}`}>
               <Button variant="secondary">Details</Button>
             </Link>
+
           </div>
         </div>
       ))}
@@ -341,7 +354,7 @@ function UserInvoiceList({ invoices, token, onUpdate }: UserListProps) {
   );
 }
 
-// --- 5. UPDATED AdminInvoiceList ---
+// --- UPDATED AdminInvoiceList ---
 interface AdminListProps {
   invoices: Invoice[];
   token: string | null;
@@ -387,7 +400,6 @@ function AdminInvoiceList({ invoices, token, onUpdate }: AdminListProps) {
     }
   };
 
-  // --- FIX: Statuses match DB model ---
   const pendingInvoices = invoices.filter((inv) => inv.status === "Submitted");
   const approvedInvoices = invoices.filter((inv) => inv.status === "Approved");
   const rejectedInvoices = invoices.filter((inv) => inv.status === "Rejected");
@@ -414,11 +426,14 @@ function AdminInvoiceList({ invoices, token, onUpdate }: AdminListProps) {
           <span>{inv.invoice_number}</span>
           <span>{inv.customer_name}</span>
           <div className="space-x-2">
-            <Link href={`/invoices/${inv.i_id}`}>
+
+            {/* --- 7. FIX: Use invoice_number for Details link --- */}
+            <Link href={`/invoices/number/${inv.invoice_number}`}>
               <Button variant="secondary" disabled={isUpdating === inv.i_id}>
                 Details
               </Button>
             </Link>
+
             <Button
               variant="default"
               onClick={() => handleUpdateStatus(inv.i_id, "Approved")}
@@ -453,9 +468,12 @@ function AdminInvoiceList({ invoices, token, onUpdate }: AdminListProps) {
           <span>{inv.invoice_number}</span>
           <span>{inv.customer_name}</span>
           <div className="space-x-2">
-            <Link href={`/invoices/${inv.i_id}`}>
+
+            {/* --- 8. FIX: Use invoice_number for Details link --- */}
+            <Link href={`/invoices/number/${inv.invoice_number}`}>
               <Button variant="secondary">Details</Button>
             </Link>
+            
             {inv.q_id && <Link href={`/quotations/${inv.q_id}`}>
               <Button variant="secondary">Quotation</Button>
             </Link>}
@@ -473,16 +491,19 @@ function AdminInvoiceList({ invoices, token, onUpdate }: AdminListProps) {
         </div>
       )}
       {paidInvoices.map((inv) => (
-         <div
+          <div
           key={inv.i_id}
           className="p-3 rounded-lg flex items-center justify-between border border-gray-700"
         >
           <span>{inv.invoice_number}</span>
           <span>{inv.customer_name}</span>
-           <div className="space-x-2">
-            <Link href={`/invoices/${inv.i_id}`}>
+            <div className="space-x-2">
+
+            {/* --- 9. FIX: Use invoice_number for Details link --- */}
+            <Link href={`/invoices/number/${inv.invoice_number}`}>
               <Button variant="secondary">Details</Button>
             </Link>
+
           </div>
         </div>
       ))}
@@ -503,9 +524,12 @@ function AdminInvoiceList({ invoices, token, onUpdate }: AdminListProps) {
           <span>{inv.invoice_number}</span>
           <span>{inv.customer_name}</span>
           <div className="space-x-2">
-            <Link href={`/invoices/${inv.i_id}`}>
+
+            {/* --- 10. FIX: Use invoice_number for Details link --- */}
+            <Link href={`/invoices/number/${inv.invoice_number}`}>
               <Button variant="secondary">Details</Button>
             </Link>
+
           </div>
         </div>
       ))}

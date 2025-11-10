@@ -26,11 +26,12 @@ export default function EditInvoicePage() {
   const params = useParams();
   const { token } = useAuth();
 
-  const id = params.id as string; // This is the i_id from the URL
+  // --- 1. FIX: Get 'invoice_number' from URL params ---
+  const invoice_number = params.invoice_number as string;
 
   // --- State for all form fields ---
   const [lineItems, setLineItems] = React.useState<LineItem[]>([]);
-  const [invoiceNumber, setInvoiceNumber] = React.useState("");
+  const [invoiceNumberDisplay, setInvoiceNumberDisplay] = React.useState(""); // For display only
   const [customerName, setCustomerName] = React.useState("");
   const [customerAddress, setCustomerAddress] = React.useState("");
   const [paymentTerm, setPaymentTerm] = React.useState("");
@@ -38,25 +39,27 @@ export default function EditInvoicePage() {
   const [isFetching, setIsFetching] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
-  // --- 1. Fetch existing invoice data on load ---
+  // --- 2. FIX: Fetch existing invoice data using invoice_number ---
   React.useEffect(() => {
-    if (!id || !token) return;
+    if (!invoice_number || !token) return;
 
     const fetchInvoice = async () => {
       setIsFetching(true);
       setError(null);
       try {
-        const response = await fetch(`${API_URL}/invoice/${id}`, {
+        // Fetch using the new endpoint
+        const response = await fetch(`${API_URL}/invoice/number/${invoice_number}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
+        
         if (!response.ok) {
           const err = await response.json();
           throw new Error(err.detail || "Failed to fetch invoice details.");
         }
         const data = await response.json();
 
-        // --- 2. Pre-populate the form with fetched data ---
-        setInvoiceNumber(data.invoice_number);
+        // --- Pre-populate the form with fetched data ---
+        setInvoiceNumberDisplay(data.invoice_number); // Set the display number
         setCustomerName(data.customer_name);
         setCustomerAddress(data.customer_address);
         setPaymentTerm(data.payment_term);
@@ -78,7 +81,7 @@ export default function EditInvoicePage() {
     };
 
     fetchInvoice();
-  }, [id, token]); // Re-run if ID or token changes
+  }, [invoice_number, token]); // Re-run if invoice_number or token changes
 
   // --- Line Item Handlers ---
   const handleLineItemChange = (
@@ -121,7 +124,7 @@ export default function EditInvoicePage() {
   const vatAmount = subtotal * VAT_RATE;
   const grandTotal = subtotal + vatAmount;
 
-  // --- 3. Handle the UPDATE (PUT) request ---
+  // --- 3. FIX: Handle the UPDATE (PUT) request using invoice_number ---
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -149,7 +152,8 @@ export default function EditInvoicePage() {
     };
 
     try {
-      const response = await fetch(`${API_URL}/invoice/${id}`, {
+      // Send PUT request to the new endpoint
+      const response = await fetch(`${API_URL}/invoice/number/${invoice_number}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -172,7 +176,7 @@ export default function EditInvoicePage() {
     }
   };
 
-  // --- 4. Loading/Error states for the page ---
+  // --- Loading/Error states for the page ---
   if (isFetching) {
     return (
       <div className="flex justify-center items-center min-h-[50vh]">
@@ -182,7 +186,7 @@ export default function EditInvoicePage() {
   }
 
   if (error && !isFetching) {
-     return (
+      return (
       <div className="flex flex-col justify-center items-center min-h-[50vh]">
         <p className="text-red-500">Error: {error}</p>
         <Button onClick={() => router.push("/invoices")} className="mt-4">Back to List</Button>
@@ -190,14 +194,14 @@ export default function EditInvoicePage() {
     );
   }
 
-  // --- 5. The Form ---
+  // --- The Form ---
   return (
     <form
       onSubmit={handleUpdate}
       className="max-w-4xl mx-auto p-6 space-y-8 border-2 border-primary rounded-2xl shadow-lg shadow-primary/20"
     >
       <h2 className="text-3xl font-bold text-center">
-        Edit Invoice: {invoiceNumber}
+        Edit Invoice: {invoiceNumberDisplay}
       </h2>
 
       {/* --- Invoice Information --- */}
@@ -207,7 +211,7 @@ export default function EditInvoicePage() {
           <Input
             placeholder="Invoice Number"
             className="bg-gray-200 text-black border-primary border-2 rounded-none"
-            value={invoiceNumber}
+            value={invoiceNumberDisplay}
             disabled // The Invoice Number (INV-2025...) cannot be edited
           />
           <Input

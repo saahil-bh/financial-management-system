@@ -43,7 +43,6 @@ class InvoiceCreate(BaseModel):
   class Config:
     from_attributes = True
 
-# --- 1. NEW MODEL FOR UPDATING ---
 class InvoiceUpdate(BaseModel):
   customer_name: str
   customer_address: str 
@@ -52,7 +51,6 @@ class InvoiceUpdate(BaseModel):
 
   class Config:
     from_attributes = True
-# --- END NEW MODEL ---
 
 class InvoiceItemResponse(InvoiceItemBase):
   item_id: int = Field(..., alias='inv_item_id') # Use the alias for 'inv_item_id'
@@ -90,7 +88,7 @@ def invoice2receipt(invoice: db_model.Invoice, db: Session):
         return check_receipt
 
     db_receipt = db_model.Receipt(
-      i_id = invoice.q_id, 
+      i_id = invoice.q_id, # This looks like a bug, should it be invoice.i_id?
       u_id = invoice.u_id,
       receipt_number = f"RC-{invoice.invoice_number}",
       customer_name = invoice.customer_name,
@@ -129,7 +127,7 @@ def create_invoice(invoice_data: InvoiceCreate, db: DBDependency, current_user: 
 
   new_status = 'Draft'
   if invoice_data.status == 'Submitted':
-       new_status = 'Submitted'
+        new_status = 'Submitted'
     
   db_invoice = db_model.Invoice(
     q_id = invoice_data.q_id, 
@@ -193,7 +191,6 @@ def get_all_invoices(db: DBDependency, current_user: Annotated[db_model.User, De
     
     return invoices
 
-# --- 2. NEW ENDPOINT FOR EDITING ---
 @router.put("/{invoice_id}", response_model=InvoiceResponse, status_code=status.HTTP_200_OK)
 def invoice_edit(invoice_id: int, invoice_update: InvoiceUpdate, db: DBDependency, current_user: Annotated[db_model.User, Depends(check_user_role('User'))]):
     
@@ -223,9 +220,9 @@ def invoice_edit(invoice_id: int, invoice_update: InvoiceUpdate, db: DBDependenc
         raise HTTPException(status_code=400, detail="Invoice must contain at least one item.")
         
     for item in invoice_update.itemlist:
-       quantity = Decimal(str(item.quantity))
-       unit_price = Decimal(str(item.unit_price))
-       subtotal += quantity * unit_price
+        quantity = Decimal(str(item.quantity))
+        unit_price = Decimal(str(item.unit_price))
+        subtotal += quantity * unit_price
         
     tax_amount = subtotal * vat
     grand_total = subtotal + tax_amount
@@ -234,8 +231,9 @@ def invoice_edit(invoice_id: int, invoice_update: InvoiceUpdate, db: DBDependenc
     invoice.tax = tax_amount
     
     try:
-      # Delete old items
-      db.query(db_model.InvoiceItem).filter(db_model.InvoiceItem.i_id == invoice_id).delete()
+      # --- BUG FIX HERE ---
+      # Delete old items based on the found invoice's ID (invoice.i_id)
+      db.query(db_model.InvoiceItem).filter(db_model.InvoiceItem.i_id == invoice.i_id).delete(synchronize_session=False)
       db.flush() # Ensure deletions are processed before additions
 
       # Add new items
@@ -259,7 +257,6 @@ def invoice_edit(invoice_id: int, invoice_update: InvoiceUpdate, db: DBDependenc
     invoice.tax = float(invoice.tax) if invoice.tax is not None else 0.0
 
     return invoice
-# --- END NEW ENDPOINT ---
 
 @router.put("/{invoice_id}/submit", response_model=InvoiceResponse, status_code=status.HTTP_200_OK)
 def invoice_submit(invoice_id: int, db: DBDependency, current_user: Annotated[db_model.User, Depends(check_user_role('User'))]):
@@ -344,7 +341,7 @@ def invoice_approve(invoice_id: int, status: str, db: DBDependency, current_user
   raise HTTPException(status_code=400, detail="Invalid status provided. Must be 'Approved' or 'Rejected'.")
     
 @router.get("/{invoice_id}", response_model=InvoiceResponse, status_code=status.HTTP_200_OK)
-def get_invoice(invoice_id: int, db: DBDependency):
+def get_invoice(invoice_id: int, db: DBDependency, current_user: CurrentUser): # <-- 1. ADDED current_user
 
     invoice = db.query(db_model.Invoice).options(
         joinedload(db_model.Invoice.items)
@@ -353,9 +350,102 @@ def get_invoice(invoice_id: int, db: DBDependency):
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
     
+    # --- 2. ADDED SECURITY CHECK ---
+    if current_user.role != 'Admin' and invoice.u_id != current_user.u_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to view this invoice")
+    
     invoice.total = float(invoice.total)
     invoice.tax = float(invoice.tax) if invoice.tax is not None else 0.0
     
+    return invoice
+
+# --- 1. NEW ENDPOINT TO GET BY NUMBER (for details page) ---
+@router.get("/number/{invoice_number}", response_model=InvoiceResponse, status_code=status.HTTP_200_OK)
+def get_invoice_by_number(invoice_number: str, db: DBDependency, current_user: CurrentUser):
+
+    invoice = db.query(db_model.Invoice).options(
+        joinedload(db_model.Invoice.items)
+    ).filter(db_model.Invoice.invoice_number == invoice_number).first()
+
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    
+    # Security check
+    if current_user.role != 'Admin' and invoice.u_id != current_user.u_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to view this invoice")
+    
+    invoice.total = float(invoice.total)
+    invoice.tax = float(invoice.tax) if invoice.tax is not None else 0.0
+    
+    return invoice
+
+# --- 2. NEW ENDPOINT TO EDIT BY NUMBER (for edit page) ---
+@router.put("/number/{invoice_number}", response_model=InvoiceResponse, status_code=status.HTTP_200_OK)
+def invoice_edit_by_number(invoice_number: str, invoice_update: InvoiceUpdate, db: DBDependency, current_user: Annotated[db_model.User, Depends(check_user_role('User'))]):
+    
+    # Find the invoice by its number
+    invoice = db.query(db_model.Invoice).options(
+        joinedload(db_model.Invoice.items)
+    ).filter(db_model.Invoice.invoice_number == invoice_number).first()
+    
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    
+    if invoice.u_id != current_user.u_id:
+        raise HTTPException(status_code=403, detail="You do not have permission to edit this invoice.")
+    
+    # This is your requested rule
+    if invoice.status != 'Draft':
+        raise HTTPException(
+            status_code=400, detail=f"Only 'Draft' invoices can be edited. Current status is '{invoice.status}'."
+            )
+
+    # Update main fields
+    invoice.customer_name = invoice_update.customer_name
+    invoice.customer_address = invoice_update.customer_address
+    invoice.payment_term = invoice_update.payment_term
+    
+    # Recalculate totals
+    subtotal = Decimal('0.00')
+    if not invoice_update.itemlist:
+        raise HTTPException(status_code=400, detail="Invoice must contain at least one item.")
+        
+    for item in invoice_update.itemlist:
+        quantity = Decimal(str(item.quantity))
+        unit_price = Decimal(str(item.unit_price))
+        subtotal += quantity * unit_price
+        
+    tax_amount = subtotal * vat
+    grand_total = subtotal + tax_amount
+
+    invoice.total = grand_total
+    invoice.tax = tax_amount
+    
+    try:
+      # Delete old items using the found invoice's ID
+      db.query(db_model.InvoiceItem).filter(db_model.InvoiceItem.i_id == invoice.i_id).delete(synchronize_session=False)
+      db.flush() 
+
+      # Add new items
+      for item_data in invoice_update.itemlist:
+          db_item = db_model.InvoiceItem(
+              i_id = invoice.i_id,
+              description = item_data.description,
+              quantity = item_data.quantity,
+              unit_price = Decimal(str(item_data.unit_price))
+          )
+          db.add(db_item)
+
+      db.commit()
+      db.refresh(invoice)
+    except Exception as e:
+        db.rollback()
+        print(f"Error updating invoice items: {e}")
+        raise HTTPException(status_code=500, detail=f"Database error during submission: {e}")
+    
+    invoice.total = float(invoice.total)
+    invoice.tax = float(invoice.tax) if invoice.tax is not None else 0.0
+
     return invoice
 
 @router.delete("/{invoice_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -364,14 +454,14 @@ def delete_invoice(invoice_id: int, db: DBDependency, current_user: Annotated[db
     invoice = db.query(db_model.Invoice).filter(db_model.Invoice.i_id == invoice_id).first()
     
     if not invoice:
-       raise HTTPException(status_code=404, detail="Invoice not found")
-  
+        raise HTTPException(status_code=404, detail="Invoice not found")
+ 
     if invoice.u_id != current_user.u_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to delete this invoice.")
     
     if invoice.status not in ['Draft', 'Submitted', 'Rejected']:
         raise HTTPException(
-          status_code=400, detail=f"Invoice cannot be deleted. Current status is '{invoice.status}'."
+            status_code=400, detail=f"Invoice cannot be deleted. Current status is '{invoice.status}'."
         )
 
     try:

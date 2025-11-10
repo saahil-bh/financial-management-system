@@ -62,6 +62,15 @@ class CompanyProfileResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class CompanyBankAccountResponse(BaseModel):
+    bank_name: str
+    account_name: str
+    account_number: str
+    swift_code: str
+
+    class Config:
+        from_attributes = True
+
 @app.get("/company-profile", response_model=CompanyProfileResponse)
 def get_company_profile(db: DBDependency):
     profile = db.query(db_model.CompanyProfile).first() 
@@ -72,6 +81,23 @@ def get_company_profile(db: DBDependency):
             detail="Company profile has not been set up."
         )
     return profile
+
+@app.get("/company-bank-account", response_model=CompanyBankAccountResponse)
+def get_company_bank_account(db: DBDependency):
+    """
+    Retrieve the default company bank account information.
+    """
+    # Fetch the bank account marked as default
+    account = db.query(db_model.CompanyBankAccount).filter(
+        db_model.CompanyBankAccount.is_default == True
+    ).first() 
+    
+    if not account:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail="Default company bank account has not been set up."
+        )
+    return account
 
 # test
 @app.get("/hi")
