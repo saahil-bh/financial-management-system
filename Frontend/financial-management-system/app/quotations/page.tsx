@@ -19,6 +19,64 @@ interface Quotation {
   items: any[];
 }
 
+// --- NEW HELPER COMPONENT ---
+// This component fetches the invoice number from the q_id
+// and then navigates to the correct invoice details page.
+
+function InvoiceLinkButton({ q_id, token }: { q_id: number; token: string | null }) {
+  const router = useRouter();
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const handleClick = async () => {
+    if (!token || !q_id) return;
+
+    setIsLoading(true);
+    setError(null);
+    try {
+      // This is the new endpoint you just added to invoice.py
+      const response = await fetch(`${API_URL}/invoice/by_quotation/${q_id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) {
+        throw new Error("Invoice not found for this quotation.");
+      }
+      
+      const data = await response.json();
+      
+      if (!data.invoice_number) {
+         throw new Error("Invoice number not found in response.");
+      }
+
+      // Now that we have the invoice_number, we can navigate
+      router.push(`/invoices/number/${data.invoice_number}`);
+
+    } catch (err: any) {
+      setError(err.message);
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (error) {
+     return <Button variant="secondary" disabled>Error</Button>
+  }
+
+  return (
+    <Button 
+      variant="secondary" // Use 'secondary' as requested
+      onClick={handleClick}
+      disabled={isLoading}
+    >
+      {isLoading ? "..." : "Invoice"}
+    </Button>
+  );
+}
+// --- END OF HELPER COMPONENT ---
+
+
 export default function QuotationsPage() {
   const { user, token } = useAuth();
   const router = useRouter();
@@ -32,7 +90,6 @@ export default function QuotationsPage() {
     setIsLoading(true);
     setError(null);
     try {
-      // This is correct based on your app.py structure
       const endpoint =
         user.role === "Admin" ? "/quotation" : "/quotation/me";
         
@@ -199,14 +256,12 @@ function UserQuotationList({ quotations, token, onUpdate }: UserListProps) {
           <span>{q.customer_name}</span>
           <div className="space-x-2">
             
-            {/* --- 1. FIX: Use quotation_number for Details link --- */}
             <Link href={`/quotations/number/${q.quotation_number}`}>
               <Button variant="secondary" disabled={isUpdating === q.q_id}>
                 Details
               </Button>
             </Link>
             
-            {/* --- 2. FIX: Use quotation_number for Edit link --- */}
             <Link href={`/quotations/edit/${q.quotation_number}`}>
               <Button variant="secondary" disabled={isUpdating === q.q_id}>
                 Edit
@@ -249,14 +304,12 @@ function UserQuotationList({ quotations, token, onUpdate }: UserListProps) {
           <span>{q.customer_name}</span>
           <div className="space-x-2">
 
-            {/* --- 3. FIX: Use quotation_number for Details link --- */}
             <Link href={`/quotations/number/${q.quotation_number}`}>
               <Button variant="secondary" disabled={isUpdating === q.q_id}>
                 Details
               </Button>
             </Link>
 
-            {/* --- 4. FIX: Use quotation_number for Edit link --- */}
             <Link href={`/quotations/edit/${q.quotation_number}`}>
               <Button variant="secondary" disabled={isUpdating === q.q_id}>
                 Edit
@@ -291,12 +344,13 @@ function UserQuotationList({ quotations, token, onUpdate }: UserListProps) {
           <span>{q.customer_name}</span>
           <div className="space-x-2">
 
-            {/* --- 5. FIX: Use quotation_number for Details link --- */}
             <Link href={`/quotations/number/${q.quotation_number}`}>
               <Button variant="secondary">Details</Button>
             </Link>
+            
+            {/* --- THIS IS THE FIX --- */}
+            <InvoiceLinkButton q_id={q.q_id} token={token} />
 
-            <Button variant="secondary">Invoice</Button>
           </div>
         </div>
       ))}
@@ -318,7 +372,6 @@ function UserQuotationList({ quotations, token, onUpdate }: UserListProps) {
           <span>{q.customer_name}</span>
           <div className="space-x-2">
 
-            {/* --- 6. FIX: Use quotation_number for Details link --- */}
             <Link href={`/quotations/number/${q.quotation_number}`}>
               <Button variant="secondary">Details</Button>
             </Link>
@@ -408,7 +461,6 @@ function AdminQuotationList({ quotations, token, onUpdate }: AdminListProps) {
           <span>{q.customer_name}</span>
           <div className="space-x-2">
 
-            {/* --- 7. FIX: Use quotation_number for Details link --- */}
             <Link href={`/quotations/number/${q.quotation_number}`}>
               <Button variant="secondary" disabled={isUpdating === q.q_id}>
                 Details
@@ -450,12 +502,13 @@ function AdminQuotationList({ quotations, token, onUpdate }: AdminListProps) {
           <span>{q.customer_name}</span>
           <div className="space-x-2">
 
-            {/* --- 8. FIX: Use quotation_number for Details link --- */}
             <Link href={`/quotations/number/${q.quotation_number}`}>
               <Button variant="secondary">Details</Button>
             </Link>
             
-            <Button variant="secondary">Invoice</Button>
+            {/* --- THIS IS THE FIX --- */}
+            <InvoiceLinkButton q_id={q.q_id} token={token} />
+
           </div>
         </div>
       ))}
@@ -477,7 +530,6 @@ function AdminQuotationList({ quotations, token, onUpdate }: AdminListProps) {
           <span>{q.customer_name}</span>
           <div className="space-x-2">
 
-            {/* --- 9. FIX: Use quotation_number for Details link --- */}
             <Link href={`/quotations/number/${q.quotation_number}`}>
               <Button variant="secondary">Details</Button>
             </Link>

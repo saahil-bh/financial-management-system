@@ -80,6 +80,9 @@ class InvoiceResponse(InvoiceBase):
   i_id: int
   items: List[InvoiceItemResponse] = []
 
+class InvoiceNumberResponse(BaseModel):
+  invoice_number: str
+
 vat = Decimal('0.07')
 
 def invoice2receipt(invoice: db_model.Invoice, db: Session):
@@ -495,3 +498,18 @@ def delete_invoice(invoice_id: int, db: DBDependency, current_user: Annotated[db
         raise HTTPException(status_code=500, detail=f"Database error during deletion: {e}")
 
     return
+
+@router.get("/by_quotation/{quotation_id}", response_model=InvoiceNumberResponse)
+def get_invoice_by_quotation_id(quotation_id: int, db: DBDependency, current_user: CurrentUser):
+    
+    # Find the invoice that has this q_id
+    invoice = db.query(db_model.Invoice).filter(db_model.Invoice.q_id == quotation_id).first()
+
+    if not invoice:
+        raise HTTPException(status_code=404, detail="No invoice found for this quotation ID.")
+    
+    # Security check
+    if current_user.role != 'Admin' and invoice.u_id != current_user.u_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+
+    return InvoiceNumberResponse(invoice_number=invoice.invoice_number)
