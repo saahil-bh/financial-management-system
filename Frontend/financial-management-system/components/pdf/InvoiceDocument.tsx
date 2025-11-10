@@ -1,19 +1,10 @@
-// components/pdf/InvoiceDocument.tsx
 "use client";
 
 import React from "react";
-import {
-  Document,
-  Page,
-  Text,
-  View,
-  StyleSheet,
-  Image,
-} from "@react-pdf/renderer";
+import * as ReactPDF from "@react-pdf/renderer";
 
 // --- STYLES ---
-// (These are the same as your Quotation styles, with a new 'bankDetails' style)
-const styles = StyleSheet.create({
+const styles = ReactPDF.StyleSheet.create({
   page: {
     flexDirection: "column",
     backgroundColor: "#FFFFFF",
@@ -26,11 +17,12 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     marginBottom: 20,
     borderBottomWidth: 2,
-    borderBottomColor: "#10B981", // Green
+    borderBottomColor: "#10B981",
     paddingBottom: 10,
   },
   companyInfo: {
     fontSize: 10,
+    lineHeight: 1.4,
   },
   logoImage: {
     width: 100,
@@ -40,10 +32,12 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "bold",
     textAlign: "right",
+    marginBottom: 10, // Fix for overlap
   },
   customerInfo: {
     fontSize: 10,
     textAlign: "right",
+    lineHeight: 1.4,
   },
   table: {
     display: "flex",
@@ -93,7 +87,7 @@ const styles = StyleSheet.create({
   totalsSection: {
     flexDirection: "row",
     justifyContent: "flex-end",
-    marginTop: 20,
+    marginTop: 10, // Added a little space
   },
   totalsContainer: {
     width: "40%",
@@ -114,22 +108,48 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "bold",
   },
-  // --- NEW STYLES ---
+  // --- BANK DETAILS (Original Style) ---
   bankDetails: {
-    marginTop: 30,
+    marginTop: 30, // In the main flow
     paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: "#E5E7EB",
     fontSize: 10,
+    lineHeight: 1.5,
   },
   bankTitle: {
     fontSize: 12,
     fontWeight: "bold",
     marginBottom: 5,
   },
+  // --- NEW FOOTER NOTES (In the main flow) ---
+  footerNotes: {
+    marginTop: 20, // Follows bank details
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#E5E7EB",
+    fontSize: 9,
+    color: "#4B5563",
+    lineHeight: 1.5,
+  },
+  footerTitle: {
+    fontSize: 10,
+    fontWeight: "bold",
+    marginBottom: 5,
+    color: "#111827",
+  },
+  signatureContainer: {
+    marginTop: 20,
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  signatureBlock: {
+    fontSize: 10,
+    width: "45%",
+  },
 });
 
-// --- PROP TYPES ---
+// --- PROP TYPES (UPDATED) ---
 type InvoiceData = {
   id: string;
   customerInfo: any;
@@ -137,6 +157,9 @@ type InvoiceData = {
   paymentTerms: string;
   lineItems: any[];
   vatRate: number;
+  preparer_name: string;
+  approver_name: string;
+  approved_date: string;
 };
 
 type CompanyInfo = {
@@ -172,108 +195,135 @@ export function InvoiceDocument({
   const vatAmount = subtotal * data.vatRate;
   const grandTotal = subtotal + vatAmount;
 
+  const approver = data.approver_name;
+  const approvalDate = (approver !== "Not Approved Yet") ? data.approved_date : "N/A";
+
   return (
-    <Document>
-      <Page size="A4" style={styles.page}>
-        {/* HEADER SECTION */}
-        <View style={styles.header}>
-          <View style={styles.companyInfo}>
-            <Image src={companyInfo.logoUrl} style={styles.logoImage} />
-            <Text>{companyInfo.name}</Text>
-            <Text>{companyInfo.address}</Text>
-            <Text>{companyInfo.email}</Text>
-            <Text>Tax ID: {companyInfo.taxID}</Text>
-          </View>
-          <View style={{ ...styles.customerInfo, ...styles.companyInfo }}>
-            <Text style={styles.title}>INVOICE</Text> {/* <-- CHANGED */}
-            <Text>No: {data.id}</Text>
-            <Text>Date: {data.date}</Text>
-            <Text>Payment Terms: {data.paymentTerms}</Text> {/* <-- ADDED */}
-            <Text style={{ marginTop: 10, fontWeight: "bold" }}>Bill To:</Text>
-            <Text>{data.customerInfo.name}</Text>
-            <Text>{data.customerInfo.address}</Text>
-            <Text>{data.customerInfo.email}</Text>
-          </View>
-        </View>
+    <ReactPDF.Document>
+      <ReactPDF.Page size="A4" style={styles.page}>
+        {/* Main content View. NO absolute positioning. NO paddingBottom. */}
+        <ReactPDF.View> 
+          
+          {/* HEADER SECTION */}
+          <ReactPDF.View style={styles.header}>
+            <ReactPDF.View style={styles.companyInfo}>
+              <ReactPDF.Image src={companyInfo.logoUrl} style={styles.logoImage} />
+              <ReactPDF.Text>{companyInfo.name}</ReactPDF.Text>
+              <ReactPDF.Text>{companyInfo.address}</ReactPDF.Text>
+              <ReactPDF.Text>{companyInfo.email}</ReactPDF.Text>
+              <ReactPDF.Text>Tax ID: {companyInfo.taxID}</ReactPDF.Text>
+            </ReactPDF.View>
+            <ReactPDF.View style={{ ...styles.customerInfo, ...styles.companyInfo }}>
+              <ReactPDF.Text style={styles.title}>INVOICE</ReactPDF.Text>
+              <ReactPDF.Text>No: {data.id}</ReactPDF.Text>
+              <ReactPDF.Text>Date: {data.date}</ReactPDF.Text>
+              <ReactPDF.Text>Payment Terms: {data.paymentTerms}</ReactPDF.Text>
+              <ReactPDF.Text style={{ marginTop: 10, fontWeight: "bold" }}>Bill To:</ReactPDF.Text>
+              <ReactPDF.Text>{data.customerInfo.name}</ReactPDF.Text>
+              <ReactPDF.Text>{data.customerInfo.address}</ReactPDF.Text>
+              <ReactPDF.Text>{data.customerInfo.email}</ReactPDF.Text>
+            </ReactPDF.View>
+          </ReactPDF.View>
 
-        {/* LINE ITEMS TABLE (Same as Quotation) */}
-        <View style={styles.table}>
-          {/* Header */}
-          <View style={styles.tableRow}>
-            <View style={{ ...styles.tableColHeader, ...styles.descriptionCol }}>
-              <Text style={styles.tableCellHeader}>Description</Text>
-            </View>
-            <View style={styles.tableColHeader}>
-              <Text style={{ ...styles.tableCellHeader, ...styles.textRight }}>
-                Qty
-              </Text>
-            </View>
-            <View style={styles.tableColHeader}>
-              <Text style={{ ...styles.tableCellHeader, ...styles.textRight }}>
-                Unit Price
-              </Text>
-            </View>
-            <View style={styles.tableColHeader}>
-              <Text style={{ ...styles.tableCellHeader, ...styles.textRight }}>
-                Total
-              </Text>
-            </View>
-          </View>
-          {/* Body */}
-          {data.lineItems.map((item) => (
-            <View style={styles.tableRow} key={item.id}>
-              <View style={{ ...styles.tableCol, ...styles.descriptionCol }}>
-                <Text style={styles.tableCell}>{item.description}</Text>
-              </View>
-              <View style={styles.tableCol}>
-                <Text style={{ ...styles.tableCell, ...styles.textRight }}>
-                  {item.qty}
-                </Text>
-              </View>
-              <View style={styles.tableCol}>
-                <Text style={{ ...styles.tableCell, ...styles.textRight }}>
-                  {item.unitPrice.toFixed(2)}
-                </Text>
-              </View>
-              <View style={styles.tableCol}>
-                <Text style={{ ...styles.tableCell, ...styles.textRight }}>
-                  {(item.qty * item.unitPrice).toFixed(2)}
-                </Text>
-              </View>
-            </View>
-          ))}
-        </View>
+          {/* LINE ITEMS TABLE */}
+          <ReactPDF.View style={styles.table}>
+            {/* Header */}
+            <ReactPDF.View style={styles.tableRow}>
+              <ReactPDF.View style={{ ...styles.tableColHeader, ...styles.descriptionCol }}>
+                <ReactPDF.Text style={styles.tableCellHeader}>Description</ReactPDF.Text>
+              </ReactPDF.View>
+              <ReactPDF.View style={styles.tableColHeader}>
+                <ReactPDF.Text style={{ ...styles.tableCellHeader, ...styles.textRight }}>
+                  Qty
+                </ReactPDF.Text>
+              </ReactPDF.View>
+              <ReactPDF.View style={styles.tableColHeader}>
+                <ReactPDF.Text style={{ ...styles.tableCellHeader, ...styles.textRight }}>
+                  Unit Price
+                </ReactPDF.Text>
+              </ReactPDF.View>
+              <ReactPDF.View style={styles.tableColHeader}>
+                <ReactPDF.Text style={{ ...styles.tableCellHeader, ...styles.textRight }}>
+                  Total
+                </ReactPDF.Text>
+              </ReactPDF.View>
+            </ReactPDF.View>
+            {/* Body */}
+            {data.lineItems.map((item, index) => (
+              <ReactPDF.View style={styles.tableRow} key={item.id || index}>
+                <ReactPDF.View style={{ ...styles.tableCol, ...styles.descriptionCol }}>
+                  <ReactPDF.Text style={styles.tableCell}>{item.description}</ReactPDF.Text>
+                </ReactPDF.View>
+                <ReactPDF.View style={styles.tableCol}>
+                  <ReactPDF.Text style={{ ...styles.tableCell, ...styles.textRight }}>
+                    {item.qty}
+                  </ReactPDF.Text>
+                </ReactPDF.View>
+                <ReactPDF.View style={styles.tableCol}>
+                  <ReactPDF.Text style={{ ...styles.tableCell, ...styles.textRight }}>
+                    {item.unitPrice.toFixed(2)}
+                  </ReactPDF.Text>
+                </ReactPDF.View>
+                <ReactPDF.View style={styles.tableCol}>
+                  <ReactPDF.Text style={{ ...styles.tableCell, ...styles.textRight }}>
+                    {(item.qty * item.unitPrice).toFixed(2)}
+                  </ReactPDF.Text>
+                </ReactPDF.View>
+              </ReactPDF.View>
+            ))}
+          </ReactPDF.View>
 
-        {/* TOTALS SECTION (Same as Quotation) */}
-        <View style={styles.totalsSection}>
-          <View style={styles.totalsContainer}>
-            <View style={styles.totalRow}>
-              <Text style={styles.totalText}>Subtotal</Text>
-              <Text style={styles.totalText}>{subtotal.toFixed(2)}</Text>
-            </View>
-            <View style={styles.totalRow}>
-              <Text style={styles.totalText}>
-                VAT ({(data.vatRate * 100).toFixed(0)}%)
-              </Text>
-              <Text style={styles.totalText}>{vatAmount.toFixed(2)}</Text>
-            </View>
-            <View style={{ ...styles.totalRow, ...styles.grandTotal }}>
-              <Text style={styles.grandTotalText}>Grand Total</Text>
-              <Text style={styles.grandTotalText}>{grandTotal.toFixed(2)}</Text>
-            </View>
-          </View>
-        </View>
+          {/* TOTALS SECTION */}
+          <ReactPDF.View style={styles.totalsSection}>
+            <ReactPDF.View style={styles.totalsContainer}>
+              <ReactPDF.View style={styles.totalRow}>
+                <ReactPDF.Text style={styles.totalText}>Subtotal</ReactPDF.Text>
+                <ReactPDF.Text style={styles.totalText}>{subtotal.toFixed(2)}</ReactPDF.Text>
+              </ReactPDF.View>
+              <ReactPDF.View style={styles.totalRow}>
+                <ReactPDF.Text style={styles.totalText}>
+                  VAT ({(data.vatRate * 100).toFixed(0)}%)
+                </ReactPDF.Text>
+                <ReactPDF.Text style={styles.totalText}>{vatAmount.toFixed(2)}</ReactPDF.Text>
+              </ReactPDF.View>
+              <ReactPDF.View style={{ ...styles.totalRow, ...styles.grandTotal }}>
+                <ReactPDF.Text style={styles.grandTotalText}>Grand Total</ReactPDF.Text>
+                <ReactPDF.Text style={styles.grandTotalText}>{grandTotal.toFixed(2)}</ReactPDF.Text>
+              </ReactPDF.View>
+            </ReactPDF.View>
+          </ReactPDF.View>
+        
+          {/* --- BANK DETAILS (IN NORMAL FLOW) --- */}
+          <ReactPDF.View style={styles.bankDetails}>
+            <ReactPDF.Text style={styles.bankTitle}>Payment Details:</ReactPDF.Text>
+            <ReactPDF.Text>Bank: {bankInfo.bankName}</ReactPDF.Text>
+            <ReactPDF.Text>Account Number: {bankInfo.accountNumber}</ReactPDF.Text>
+            <ReactPDF.Text>Account Name: {bankInfo.accountName}</ReactPDF.Text>
+            <ReactPDF.Text>SWIFT: {bankInfo.swiftCode}</ReactPDF.Text>
+            <ReactPDF.Text>Ref: {data.id}</ReactPDF.Text>
+          </ReactPDF.View>
 
-        {/* --- NEW BANK DETAILS SECTION --- */}
-        <View style={styles.bankDetails}>
-          <Text style={styles.bankTitle}>Payment Details:</Text>
-          <Text>Bank Name: {bankInfo.bankName}</Text>
-          <Text>Account Name: {bankInfo.accountName}</Text>
-          <Text>Account Number: {bankInfo.accountNumber}</Text>
-          <Text>SWIFT Code: {bankInfo.swiftCode}</Text>
-          <Text>Payment Reference: {data.id}</Text>
-        </View>
-      </Page>
-    </Document>
+          {/* --- NOTES & SIGNATURES (IN NORMAL FLOW) --- */}
+          <ReactPDF.View style={styles.footerNotes}>
+            <ReactPDF.Text style={styles.footerTitle}>Notes:</ReactPDF.Text>
+            <ReactPDF.Text>- Please make payment before the due date.</ReactPDF.Text>
+            <ReactPDF.Text>- For proof of payment, please email finance@myfinance.com.</ReactPDF.Text>
+
+            <ReactPDF.View style={styles.signatureContainer}>
+              <ReactPDF.View style={styles.signatureBlock}>
+                <ReactPDF.Text>Issued by: {data.preparer_name}</ReactPDF.Text>
+                <ReactPDF.Text>Date: {data.date}</ReactPDF.Text>
+              </ReactPDF.View>
+              <ReactPDF.View style={styles.signatureBlock}>
+                <ReactPDF.Text>Approved by: {approver}</ReactPDF.Text>
+                <ReactPDF.Text>Date: {approvalDate}</ReactPDF.Text>
+              </ReactPDF.View>
+            </ReactPDF.View>
+          </ReactPDF.View>
+          
+        </ReactPDF.View> 
+        {/* End of main content wrapper */}
+      </ReactPDF.Page>
+    </ReactPDF.Document>
   );
 }

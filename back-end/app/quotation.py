@@ -1,6 +1,6 @@
 from datetime import timedelta, datetime, timezone
 from decimal import Decimal
-from typing import Annotated, List
+from typing import Annotated, List, Optional
 import uuid
 from .auth import check_user_role, get_current_user
 from .database import get_db
@@ -64,6 +64,9 @@ class QuotationBase(BaseModel):
   status: str
   total: float
   tax: float
+  preparer_name: Optional[str] = None
+  approver_name: Optional[str] = None
+  approved_date: Optional[str] = None
   class Config:
     from_attributes = True
 
@@ -214,6 +217,23 @@ def get_quotation_by_number(quotation_number: str, db: DBDependency, current_use
     # --- ADDED SECURITY CHECK ---
     if current_user.role != 'Admin' and quotation.u_id != current_user.u_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to view this quotation")
+    
+    preparer_name = None
+    if quotation.user:
+        preparer_name = quotation.user.name # Get preparer name from joined user
+
+    approver_name = None
+    approved_date = None
+    if quotation.status == 'Approved':
+        # Find the log entry for this quotation being approved
+        log_entry = db.query(db_model.Log)\
+            .filter(db_model.Log.document_id == quotation.q_id, db_model.Log.action == 'Approved')\
+            .order_by(db_model.Log.timestamp.desc())\
+            .first()
+        
+        if log_entry and log_entry.actor:
+            approver_name = log_entry.actor.name
+            approved_date = log_entry.timestamp
     
     quotation.total = float(quotation.total)
     quotation.tax = float(quotation.tax)

@@ -1,6 +1,6 @@
 from datetime import timedelta, datetime, timezone
 from decimal import Decimal
-from typing import Annotated, List
+from typing import Annotated, List, Optional
 import uuid
 from .auth import check_user_role, get_current_user
 from .database import get_db
@@ -11,7 +11,6 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import IntegrityError
 from starlette import status
 from . import db_model
-from typing import Optional
 
 router = APIRouter(prefix='/invoice', tags=['invoice'])
 
@@ -69,8 +68,11 @@ class InvoiceBase(BaseModel):
   payment_term: str
   status: str
   total: float
-  tax: float | None = 0.0 # Allow tax to be None
+  tax: float | None = 0.0
   u_id: uuid.UUID | None = None
+  preparer_name: Optional[str] = None
+  approver_name: Optional[str] = None
+  approved_date: Optional[datetime] = None
   class Config:
     from_attributes = True
 
@@ -375,10 +377,30 @@ def get_invoice_by_number(invoice_number: str, db: DBDependency, current_user: C
     if current_user.role != 'Admin' and invoice.u_id != current_user.u_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to view this invoice")
     
+    preparer_name = invoice.user.name if invoice.user else None
+    
+    approver_name = None
+    approved_date = None
+    if invoice.status == 'Approved':
+        # Find the log entry for this invoice being approved
+        log_entry = db.query(db_model.Log)\
+            .filter(db_model.Log.document_id == invoice.i_id, db_model.Log.action == 'Approved')\
+            .order_by(db_model.Log.timestamp.desc())\
+            .first()
+        
+        if log_entry and log_entry.actor:
+            approver_name = log_entry.actor.name
+            approved_date = log_entry.timestamp
+    
     invoice.total = float(invoice.total)
     invoice.tax = float(invoice.tax) if invoice.tax is not None else 0.0
+
+    response_data = invoice.__dict__
+    response_data['preparer_name'] = preparer_name
+    response_data['approver_name'] = approver_name
+    response_data['approved_date'] = approved_date
     
-    return invoice
+    return InvoiceResponse(**response_data)
 
 # --- 2. NEW ENDPOINT TO EDIT BY NUMBER (for edit page) ---
 @router.put("/number/{invoice_number}", response_model=InvoiceResponse, status_code=status.HTTP_200_OK)

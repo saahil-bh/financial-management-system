@@ -41,6 +41,9 @@ interface ApiQuotationResponse {
     unit_price: string;
     total: string;
   }[];
+  preparer_name: string | null;
+  approver_name: string | null;
+  approved_date: string | null;
 }
 
 // 3. Matches props for <QuotationDocument> (Company Info)
@@ -70,6 +73,9 @@ interface PdfData {
     unitPrice: number;
   }[];
   vatRate: number;
+  preparer_name: string;
+  approver_name: string;
+  approved_date: string;
 }
 
 const DynamicPDFViewer = dynamic(
@@ -134,6 +140,10 @@ export default function QuotationPdfPage() {
         const validDate = new Date(createdDate);
         validDate.setDate(createdDate.getDate() + 30); // 30-day validity
 
+        const approvedDate = quotationData.approved_date 
+          ? new Date(quotationData.approved_date) 
+          : null;
+
         const formattedLineItems = quotationData.items.map((item) => ({
           id: item.item_id,
           description: item.description,
@@ -152,6 +162,9 @@ export default function QuotationPdfPage() {
           validUntil: validDate.toLocaleDateString(),
           lineItems: formattedLineItems,
           vatRate: vatRate,
+          preparer_name: quotationData.preparer_name || "N/A",
+          approver_name: quotationData.approver_name || "Not Approved Yet",
+          approved_date: approvedDate ? approvedDate.toLocaleDateString("en-GB") : "N/A",
         };
         setPdfData(mappedPdfData);
 

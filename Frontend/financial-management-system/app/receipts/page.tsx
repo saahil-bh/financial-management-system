@@ -98,14 +98,6 @@ export default function ReceiptsPage() {
         <h2 className="text-2xl font-bold text-primary-foreground">
           Welcome back, {user?.name || "User"}!
         </h2>
-        {!isUser && (
-          <Button
-            onClick={() => router.push("/logs")}
-            className="bg-white text-black font-bold hover:bg-gray-200"
-          >
-            Logs
-          </Button>
-        )}
       </div>
 
       <h3 className="text-3xl font-bold">

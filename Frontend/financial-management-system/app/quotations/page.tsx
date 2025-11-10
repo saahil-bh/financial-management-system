@@ -91,14 +91,6 @@ export default function QuotationsPage() {
             Create Quotation
           </Button>
         )}
-        {!isUser && (
-          <Button
-            onClick={() => router.push("/logs")}
-            className="bg-white text-black font-bold hover:bg-gray-200"
-          >
-            Logs
-          </Button>
-        )}
       </div>
 
       <h3 className="text-3xl font-bold">
