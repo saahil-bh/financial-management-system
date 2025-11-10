@@ -6,6 +6,7 @@ psycopg2-binary
 python-dotenv 
 python-jose[cryptography] 
 passlib[bcrypt]
-pwdlib
+pwdlib[argon2]
 sendgrid  
 line-bot-sdk  
+python-multiport
