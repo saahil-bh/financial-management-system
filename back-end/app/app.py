@@ -5,6 +5,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from . import quotation
 from . import invoice
 from . import receipt
+from . import logs
 from . import auth
 from . import db_model 
 from . import notification_service
@@ -34,7 +35,8 @@ app.add_middleware(
 
 app.include_router(quotation.router) 
 app.include_router(invoice.router) 
-app.include_router(receipt.router) 
+app.include_router(receipt.router)
+app.include_router(logs.router)
 app.include_router(auth.router) 
 app.include_router(line_webhook.router) 
 

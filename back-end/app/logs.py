@@ -1,0 +1,34 @@
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+from sqlalchemy import desc # Import desc for ordering
+from typing import List, Annotated
+import uuid
+from datetime import datetime
+from . import db_model
+from .database import get_db
+from .auth import check_user_role, get_current_user
+
+router = APIRouter(prefix='/logs', tags=['logs'])
+
+DBDependency = Annotated[Session, Depends(get_db)]
+# This dependency will ensure only an Admin can access this router's endpoints
+AdminUser = Annotated[db_model.User, Depends(check_user_role('Admin'))]
+
+# 1. Pydantic model for the response, matching your DB
+class LogResponse(BaseModel):
+    l_id: int
+    actor_id: uuid.UUID
+    action: str
+    document_id: int
+    timestamp: datetime
+
+    class Config:
+        from_attributes = True
+
+# 2. The endpoint to get all logs
+@router.get("/", response_model=List[LogResponse])
+def get_all_logs(db: DBDependency, current_user: AdminUser):
+    logs = db.query(db_model.Log).order_by(desc(db_model.Log.timestamp)).all()
+    
+    return logs

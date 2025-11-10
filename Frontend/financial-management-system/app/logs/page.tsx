@@ -2,15 +2,15 @@
 import { Button } from "@/components/ui/button";
 import * as React from "react";
 import { Lock } from "lucide-react";
-import { useAuth } from "@/context/AuthContext"; // Import the Auth hook
-import api from "@/lib/api"; // Import the API client
+import { useAuth } from "../../context/AuthContext"; // Import the Auth hook
+import api from "../../lib/api"; // Import the API client
 
 // Define the type for a Log
 interface Log {
   l_id: number;
   actor_id: number;
   action: string;
-  document_id: string;
+  document_id: number; // Changed from string to number
   timestamp: string;
 }
 
@@ -55,7 +55,7 @@ export default function LogsPage() {
 
   // Show a loading state while fetching logs (only for Admin)
   if (isLoading && isAdmin) {
-     return (
+      return (
       <div className="flex justify-center items-center min-h-[50vh]">
         <p>Loading logs...</p>
       </div>
@@ -65,8 +65,10 @@ export default function LogsPage() {
   // Once loading is done, show LogsList for Admin or AccessDenied for User
   return (
     <div className="space-y-6">
-      {/* The temporary UI toggle is removed */}
-      
+      {/* <span className="w-1/4">Action</span>
+          <span className="w-1/4">Document ID</span>
+        </div> */}
+  
       <h3 className="text-3xl font-bold">System Activity Logs</h3>
 
       {isAdmin ? (
@@ -110,7 +112,7 @@ function LogsList({ logs }: { logs: Log[] }) {
           key={log.l_id}
           className="flex p-3 rounded-lg border border-gray-700 items-center"
         >
-          <span className="w-1/CSS-1/4 font-mono text-sm">{log.timestamp}</span>
+          <span className="w-1/4 font-mono text-sm">{log.timestamp}</span>
           <span className="w-1/4">{log.actor_id}</span>
           <span className={`w-1/4 font-bold ${getActionColor(log.action)}`}>
             {log.action}
