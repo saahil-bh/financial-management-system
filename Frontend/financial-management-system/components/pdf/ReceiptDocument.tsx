@@ -12,83 +12,76 @@ import {
 } from "@react-pdf/renderer";
 
 // --- STYLES ---
-// Adapted from your Invoice styles to match the Receipt format
+// Using a simpler, cleaner style based on your template
 const styles = StyleSheet.create({
   page: {
     flexDirection: "column",
     backgroundColor: "#FFFFFF",
-    padding: 30,
+    padding: 35,
     fontFamily: "Helvetica",
   },
-  // Header: Company Info
-  header: {
+  // --- Header ---
+  headerContainer: {
     flexDirection: "column",
     alignItems: "center",
-    marginBottom: 10,
-    paddingBottom: 10,
-    borderBottomWidth: 1.5,
-    borderBottomColor: "#333333",
+    textAlign: "center",
+    marginBottom: 15,
   },
-  logoImage: {
-    width: 100,
-    marginBottom: 5,
+  logo: {
+    width: 200,
+    marginBottom: 10,
   },
   companyName: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "bold",
+    marginBottom: 2,
   },
-  companyInfo: {
+  companyDetails: {
     fontSize: 9,
-    textAlign: "center",
+    color: "#4B5563",
   },
-  // Title
+  // --- Title & Info ---
   titleContainer: {
-    marginTop: 20,
-    marginBottom: 10,
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-end",
+    marginTop: 20,
+    paddingBottom: 15,
+    borderBottomWidth: 2,
+    borderBottomColor: "#D1D5DB",
   },
   title: {
     fontSize: 24,
     fontWeight: "bold",
   },
-  receiptDetails: {
+  receiptInfo: {
     fontSize: 10,
     textAlign: "right",
   },
-  // Customer & Invoice Info
-  customerContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 10,
-    fontSize: 10,
-    paddingBottom: 20,
-    borderBottomWidth: 1.5,
-    borderBottomColor: "#333333",
-  },
+  // --- Customer Info ---
   customerInfo: {
-    width: "50%",
-  },
-  relatedInvoice: {
-    width: "50%",
-    textAlign: "right",
-  },
-  // Payment Details
-  paymentSection: {
-    marginTop: 20,
     fontSize: 10,
-    paddingBottom: 20,
-    borderBottomWidth: 1.5,
-    borderBottomColor: "#333333",
+    marginTop: 15,
+    lineHeight: 1.4,
   },
-  paymentRow: {
-    flexDirection: "row",
-    marginBottom: 5,
+  // --- Payment Details ---
+  paymentDetails: {
+    marginTop: 30,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 5,
+    fontSize: 10,
+    lineHeight: 1.6,
   },
-  paymentLabel: {
-    width: 150,
+  paymentTitle: {
+    fontSize: 12,
     fontWeight: "bold",
+    marginBottom: 10,
+  },
+  checkboxContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 5,
   },
   checkbox: {
     width: 10,
@@ -96,59 +89,71 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#000",
     marginRight: 5,
-  },
-  checkboxChecked: {
+    // "Checked"
     backgroundColor: "#000",
   },
-  // Signature & Footer
+  checkboxUnchecked: {
+    width: 10,
+    height: 10,
+    borderWidth: 1,
+    borderColor: "#000",
+    marginRight: 5,
+  },
+  // --- Footer ---
   footer: {
-    marginTop: "auto", // Pushes to the bottom
-    paddingTop: 20,
+    position: "absolute",
+    bottom: 35,
+    left: 35,
+    right: 35,
+    textAlign: "center",
     fontSize: 10,
+    color: "#4B5563",
   },
-  receivedBy: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 40,
-  },
-  signatureLine: {
-    width: 200,
-    borderTopWidth: 1,
-    borderTopColor: "#000",
-    paddingTop: 5,
-    textAlign: "center",
-  },
-  thankYou: {
-    textAlign: "center",
+  signature: {
+    marginTop: 40,
+    fontSize: 10,
+    color: "#374151",
   },
 });
 
-// --- CHECKBOX HELPER ---
-const Checkbox = ({ checked }: { checked: boolean }) => (
-  <View style={styles.checkbox}>
-    {checked && <View style={styles.checkboxChecked} />}
-  </View>
-);
-
 // --- PROP TYPES ---
+// Simplified types for the receipt
 export type ReceiptData = {
   receipt_number: string;
-  payment_date: string;
-  customer_name: string;
-  customer_address: string;
-  i_id: number; // For the related invoice
-  invoice_number: string; // The related invoice number
-  payment_method: string | null;
+  payment_date: string; // Assumes ISO string
   amount: number;
+  status: string;
+  approver_name: string | null;
+  // Related invoice/customer info
+  invoice: {
+    invoice_number: string;
+    customer_name: string;
+    customer_address: string;
+  };
 };
 
-export type CompanyInfo = {
+type CompanyInfo = {
   company_name: string;
   company_address: string;
-  phone: string;
   email: string;
+  phone: string;
+  logoUrl: string; // The base64 logo
   tax_id: string;
-  logoUrl: string; // Assuming you add a logo URL
+};
+
+// --- HELPER ---
+const formatDate = (dateString: string) => {
+  if (!dateString) return "N/A";
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  } catch (error) {
+    return dateString;
+  }
 };
 
 // --- COMPONENT ---
@@ -159,81 +164,83 @@ export function ReceiptDocument({
   data: ReceiptData;
   companyInfo: CompanyInfo;
 }) {
-  const receiptDate = new Date(data.payment_date).toLocaleDateString("en-GB");
-  const paymentMethod = data.payment_method || "N/A";
+  const receivedBy =
+    data.status === "Approved"
+      ? data.approver_name || "Admin" // Fallback if name is null
+      : "Not Approved Yet";
 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        {/* HEADER SECTION */}
-        <View style={styles.header}>
-          {companyInfo.logoUrl && (
-            <Image src={companyInfo.logoUrl} style={styles.logoImage} />
-          )}
+        {/* === HEADER === */}
+        <View style={styles.headerContainer}>
+          <Image src={companyInfo.logoUrl} style={styles.logo} />
           <Text style={styles.companyName}>{companyInfo.company_name}</Text>
-          <Text style={styles.companyInfo}>{companyInfo.company_address}</Text>
-          <Text style={styles.companyInfo}>
+          <Text style={styles.companyDetails}>
+            {companyInfo.company_address}
+          </Text>
+          <Text style={styles.companyDetails}>
             Tel: {companyInfo.phone} | Email: {companyInfo.email}
           </Text>
-          <Text style={styles.companyInfo}>Tax ID: {companyInfo.tax_id}</Text>
+          <Text style={styles.companyDetails}>
+            Tax ID: {companyInfo.tax_id}
+          </Text>
         </View>
 
-        {/* TITLE & RECEIPT INFO */}
+        {/* === TITLE & RECEIPT INFO === */}
         <View style={styles.titleContainer}>
           <Text style={styles.title}>RECEIPT</Text>
-          <View style={styles.receiptDetails}>
+          <View style={styles.receiptInfo}>
             <Text>Receipt No.: {data.receipt_number}</Text>
-            <Text>Receipt Date: {receiptDate}</Text>
+            <Text>Receipt Date: {formatDate(data.payment_date)}</Text>
           </View>
         </View>
 
-        {/* CUSTOMER & INVOICE INFO */}
-        <View style={styles.customerContainer}>
-          <View style={styles.customerInfo}>
-            <Text>Customer Name: {data.customer_name}</Text>
-            <Text>Customer Address: {data.customer_address}</Text>
-          </View>
-          <View style={styles.relatedInvoice}>
-            <Text>Related Invoice: {data.invoice_number}</Text>
-          </View>
+        {/* === CUSTOMER INFO === */}
+        <View style={styles.customerInfo}>
+          <Text>Customer Name: {data.invoice.customer_name}</Text>
+          <Text>Customer Address: {data.invoice.customer_address}</Text>
+          <Text>Related Invoice: {data.invoice.invoice_number}</Text>
         </View>
 
-        {/* PAYMENT SECTION */}
-        <View style={styles.paymentSection}>
-          <View style={styles.paymentRow}>
-            <Text style={styles.paymentLabel}>Payment Method:</Text>
-            <Checkbox checked={paymentMethod === "Bank Transfer"} />
+        {/* === PAYMENT DETAILS === */}
+        <View style={styles.paymentDetails}>
+          <Text style={styles.paymentTitle}>Payment Details</Text>
+
+          {/* Checkboxes */}
+          <View style={styles.checkboxContainer}>
+            <View style={styles.checkbox} />
             <Text>Bank Transfer</Text>
-            <Checkbox checked={paymentMethod === "Cash"} />
+          </View>
+          <View style={styles.checkboxContainer}>
+            <View style={styles.checkboxUnchecked} />
             <Text>Cash</Text>
-            <Checkbox checked={paymentMethod === "Credit Card"} />
+          </View>
+          <View style={styles.checkboxContainer}>
+            <View style={styles.checkboxUnchecked} />
             <Text>Credit Card</Text>
           </View>
-          <View style={styles.paymentRow}>
-            <Text style={styles.paymentLabel}>Payment Date:</Text>
-            <Text>{receiptDate}</Text>
-          </View>
-          <View style={styles.paymentRow}>
-            <Text style={styles.paymentLabel}>Transaction Reference:</Text>
-            <Text>N/A</Text>
-          </View>
-          <View style={styles.paymentRow}>
-            <Text style={styles.paymentLabel}>Amount Paid:</Text>
-            <Text>{data.amount.toFixed(2)}</Text>
+
+          {/* Other Details */}
+          <Text style={{ marginTop: 10 }}>
+            Payment Date: {formatDate(data.payment_date)}
+          </Text>
+          <Text>
+            Transaction Reference: {data.receipt_number}
+          </Text>
+
+          {/* Received By & Signature */}
+          <View style={styles.signature}>
+            <Text>Received by: {receivedBy}</Text>
+            <Text style={{ marginTop: 20 }}>
+              Signature: _______________________
+            </Text>
           </View>
         </View>
 
-        {/* FOOTER & SIGNATURE */}
+        {/* === FOOTER === */}
         <View style={styles.footer}>
-          <View style={styles.receivedBy}>
-            <View>
-              <Text>Received by: [Admin/Authorized Person]</Text>
-            </View>
-            <View style={styles.signatureLine}>
-              <Text>Signature</Text>
-            </View>
-          </View>
-          <Text style={styles.thankYou}>Thank you for your business!</Text>
+          <Text>Thank you for your business!</Text>
         </View>
       </Page>
     </Document>

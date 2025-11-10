@@ -1,167 +1,239 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { PDFViewer } from "@react-pdf/renderer";
+import { ReceiptDocument } from "@/components/pdf/ReceiptDocument"; // Use alias
+import { useAuth } from "@/context/AuthContext"; // Use alias
 import { Button } from "@/components/ui/button";
+import dynamic from "next/dynamic";
 import { ArrowLeft } from "lucide-react";
-import axios from "axios";
-import {
-  ReceiptDocument,
-  type ReceiptData,
-  type CompanyInfo,
-} from "@/components/pdf/ReceiptDocument";
 
-// --- API CLIENT WITH AUTH ---
-const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000",
-  headers: {
-    "Content-Type": "application/json",
-  },
-});
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
-api.interceptors.request.use(
-  (config) => {
-    if (typeof window !== "undefined") {
-      const token = localStorage.getItem("access_token");
-      if (token) {
-        config.headers["Authorization"] = `Bearer ${token}`;
-      }
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+// --- Helper Interfaces ---
 
-// --- HELPER TYPES ---
-// Type for the receipt data from /receipt/number/{num}
-type ApiReceiptResponse = {
+// 1. Matches GET /company-profile
+interface ApiCompanyProfile {
+  company_name: string;
+  company_address: string;
+  tax_id: string;
+  phone: string;
+  email: string;
+}
+
+// 2. Matches GET /receipt/number/{receipt_number}
+interface ApiReceiptResponse {
   r_id: number;
   i_id: number;
-  u_id: string;
   receipt_number: string;
   status: string;
   amount: number;
   payment_date: string;
-  payment_method: string | null;
-  created_at: string;
-};
+  approver_name: string | null;
+  // ... other fields
+}
 
-// Type for the invoice data from /invoice/{id}
-type ApiInvoiceResponse = {
+// 3. Matches GET /invoice/{invoice_id} (we only need a subset)
+interface ApiInvoiceResponse {
   invoice_number: string;
   customer_name: string;
   customer_address: string;
-  // ... other invoice fields we don't need
-};
+  // ... other fields
+}
 
-// Type for company profile from /company-profile
-type ApiCompanyInfo = {
+// 4. Matches props for <ReceiptDocument> (Company Info)
+// This must match what ReceiptDocument expects
+interface PdfCompanyInfo {
   company_name: string;
   company_address: string;
-  phone: string;
   email: string;
+  phone: string;
+  logoUrl: string; // The placeholder logo
   tax_id: string;
-  // logoUrl: string; // Add this if you have it
-};
+}
 
-export default function ReceiptDetailsPage() {
-  const router = useRouter();
+// 5. Matches props for <ReceiptDocument> (Receipt Data)
+// This must match what ReceiptDocument expects
+interface PdfData {
+  receipt_number: string;
+  payment_date: string;
+  amount: number;
+  status: string;
+  approver_name: string | null;
+  // Nested invoice/customer info
+  invoice: {
+    invoice_number: string;
+    customer_name: string;
+    customer_address: string;
+  };
+}
+
+// --- Dynamic PDFViewer ---
+// Prevents SSR issues, as seen in your template
+const DynamicPDFViewer = dynamic(
+  () => import("@react-pdf/renderer").then((mod) => mod.PDFViewer),
+  { ssr: false }
+);
+
+export default function ReceiptPdfPage() {
   const params = useParams();
+  const router = useRouter();
+  const { token } = useAuth(); // Get token from AuthContext
+
   const receipt_number = params.receipt_number as string;
 
-  const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
-  const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
+  const [isClient, setIsClient] = useState(false);
+  const [pdfData, setPdfData] = useState<PdfData | null>(null);
+  const [companyInfo, setCompanyInfo] = useState<PdfCompanyInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!receipt_number) return;
+    setIsClient(true);
+  }, []);
+
+  // Fetch and Map Data
+  useEffect(() => {
+    if (!receipt_number || !token) {
+      return; // Wait for number and token
+    }
 
     const fetchAllData = async () => {
       setIsLoading(true);
       setError(null);
+
       try {
-        // 1. Fetch Company Profile
-        const companyRes = await api.get<ApiCompanyInfo>("/company-profile");
-        const companyData = {
-          ...companyRes.data,
-          logoUrl: "/logo.png", // Hardcoding logo, you can fetch this
+        // Fetch company profile and receipt details
+        const [companyRes, receiptRes] = await Promise.all([
+          fetch(`${API_URL}/company-profile`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          fetch(`${API_URL}/receipt/number/${receipt_number}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+        ]);
+
+        if (!companyRes.ok) {
+          throw new Error("Failed to fetch company profile.");
+        }
+        if (!receiptRes.ok) {
+          const err = await receiptRes.json();
+          throw new Error(err.detail || "Failed to fetch receipt details.");
+        }
+
+        const companyData: ApiCompanyProfile = await companyRes.json();
+        const receiptData: ApiReceiptResponse = await receiptRes.json();
+
+        // --- Now fetch the related invoice ---
+        const invoiceRes = await fetch(`${API_URL}/invoice/${receiptData.i_id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!invoiceRes.ok) {
+          throw new Error("Failed to fetch related invoice details.");
+        }
+        const invoiceData: ApiInvoiceResponse = await invoiceRes.json();
+
+        // --- Map Company Data (using placeholder logo) ---
+        const mappedCompanyInfo: PdfCompanyInfo = {
+          company_name: companyData.company_name,
+          company_address: companyData.company_address,
+          email: companyData.email,
+          tax_id: companyData.tax_id,
+          phone: companyData.phone,
+          // --- USING YOUR EXACT LOGO METHOD ---
+          logoUrl: "/MyFinance.png",
         };
-        setCompanyInfo(companyData);
+        setCompanyInfo(mappedCompanyInfo);
 
-        // 2. Fetch the Receipt by its number
-        // This requires the new endpoint in receipt.py
-        const receiptRes = await api.get<ApiReceiptResponse>(
-          `/receipt/number/${receipt_number}`
-        );
-        const receipt = receiptRes.data;
-
-        // 3. Fetch the related Invoice to get customer info
-        const invoiceRes = await api.get<ApiInvoiceResponse>(
-          `/invoice/${receipt.i_id}`
-        );
-        const invoice = invoiceRes.data;
-
-        // 4. Combine data for the PDF
-        const combinedData: ReceiptData = {
-          receipt_number: receipt.receipt_number,
-          payment_date: receipt.payment_date,
-          customer_name: invoice.customer_name,
-          customer_address: invoice.customer_address,
-          i_id: receipt.i_id,
-          invoice_number: invoice.invoice_number,
-          payment_method: receipt.payment_method,
-          amount: receipt.amount,
+        // --- Map Receipt Data ---
+        const mappedPdfData: PdfData = {
+          receipt_number: receiptData.receipt_number,
+          payment_date: receiptData.payment_date,
+          amount: receiptData.amount,
+          status: receiptData.status,
+          approver_name: receiptData.approver_name,
+          invoice: {
+            invoice_number: invoiceData.invoice_number,
+            customer_name: invoiceData.customer_name,
+            customer_address: invoiceData.customer_address,
+          },
         };
+        setPdfData(mappedPdfData);
 
-        setReceiptData(combinedData);
-      } catch (err) {
-        console.error("Failed to fetch receipt data:", err);
-        setError("Failed to load receipt. Please try again.");
+      } catch (err: any) {
+        setError(err.message);
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchAllData();
-  }, [receipt_number]);
+  }, [receipt_number, token]); // Re-run if number or token changes
 
+  // --- Handle Loading/Error/Client States ---
+  if (!isClient || isLoading) {
+    return (
+      <div className="flex flex-col h-screen w-full">
+        <header className="flex items-center space-x-4 p-4 bg-primary text-primary-foreground">
+           <ArrowLeft className="h-5 w-5" />
+          <h1 className="text-xl font-bold">Loading Document...</h1>
+        </header>
+        <div className="flex-1 flex items-center justify-center">
+          <p>Loading PDF...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col h-screen w-full">
+         <header className="flex items-center space-x-4 p-4 bg-destructive text-destructive-foreground">
+           <Button variant="outline" size="icon" onClick={() => router.back()} className="bg-transparent border-destructive-foreground text-destructive-foreground hover:bg-destructive-foreground/20">
+             <ArrowLeft className="h-5 w-5" />
+           </Button>
+          <h1 className="text-xl font-bold">Error</h1>
+        </header>
+        <div className="flex-1 flex flex-col items-center justify-center">
+          <p className="text-destructive mb-4">Error: {error}</p>
+          <Button onClick={() => router.back()}>Go Back</Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!pdfData || !companyInfo) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <p>Could not load receipt data.</p>
+      </div>
+    );
+  }
+
+  // --- Render PDF ---
+  // This includes the green header bar you wanted
   return (
     <div className="flex flex-col h-screen w-full">
-      {/* Header Bar */}
-      <div className="flex-shrink-0 flex items-center justify-between p-4 bg-gray-900 border-b border-gray-700">
-        <Button
-          variant="outline"
-          onClick={() => router.push("/receipts")}
-          className="text-white"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Receipts
-        </Button>
-        <h1 className="text-xl font-bold text-white">
-          Receipt: {receipt_number}
-        </h1>
-        <div className="w-32"></div> {/* Spacer */}
-      </div>
-
-      {/* PDF Viewer or Loading/Error State */}
-      <div className="flex-grow w-full">
-        {isLoading && (
-          <div className="flex items-center justify-center h-full">
-            <p>Loading document...</p>
-          </div>
-        )}
-        {error && (
-          <div className="flex items-center justify-center h-full">
-            <p className="text-destructive">{error}</p>
-          </div>
-        )}
-        {!isLoading && !error && receiptData && companyInfo && (
-          <PDFViewer width="100%" height="100%">
-            <ReceiptDocument data={receiptData} companyInfo={companyInfo} />
-          </PDFViewer>
-        )}
+      <header className="flex items-center justify-between p-4 bg-primary text-primary-foreground">
+        <div className="flex items-center space-x-4">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => router.back()}
+            className="bg-transparent border-primary-foreground text-primary-foreground hover:bg-primary-foreground/20"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="text-xl font-bold text-primary-foreground">
+            {pdfData.receipt_number}
+          </h1>
+        </div>
+      </header>
+      <div className="flex-1">
+        <DynamicPDFViewer style={{ width: "100%", height: "100%" }}>
+          <ReceiptDocument data={pdfData} companyInfo={companyInfo} />
+        </DynamicPDFViewer>
       </div>
     </div>
   );

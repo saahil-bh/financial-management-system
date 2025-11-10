@@ -1,6 +1,6 @@
 from datetime import date, timedelta, datetime, timezone
 from decimal import Decimal
-from typing import Annotated, List
+from typing import Annotated, List, Optional
 import uuid
 from .auth import check_user_role, get_current_user
 from .database import get_db
@@ -45,9 +45,8 @@ class ReceiptBase(BaseModel):
     payment_date: date
     payment_method: str | None = None
     u_id: uuid.UUID | None = None
-    
-    # Add receipt_number to the base
     receipt_number: str | None = None 
+    approver_name: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -219,6 +218,18 @@ def get_receipt_by_number(receipt_number: str, db: DBDependency, current_user: C
     # Security check: User can only see their own receipts, Admin can see all
     if current_user.role != 'Admin' and receipt.u_id != current_user.u_id:
         raise HTTPException(status_code=403, detail="Not authorized to view this receipt")
+    
+    approver_name = None
+    if receipt.status == 'Approved':
+        # Find the log entry for this receipt being approved
+        # Assuming document_id for receipts is the r_id
+        log_entry = db.query(db_model.Log)\
+            .filter(db_model.Log.document_id == receipt.r_id, db_model.Log.action == 'Approved')\
+            .order_by(db_model.Log.timestamp.desc())\
+            .first() # Get the most recent approval
+        
+        if log_entry and log_entry.actor:
+            approver_name = log_entry.actor.name
 
     receipt.amount = float(receipt.amount)
     

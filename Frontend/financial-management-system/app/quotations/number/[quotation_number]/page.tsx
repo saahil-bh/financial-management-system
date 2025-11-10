@@ -5,6 +5,8 @@ import { PDFViewer } from "@react-pdf/renderer";
 import { QuotationDocument } from "@/components/pdf/QuotationDocument";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
+import dynamic from "next/dynamic";
 
 const API_URL = "http://localhost:8000";
 
@@ -69,6 +71,11 @@ interface PdfData {
   }[];
   vatRate: number;
 }
+
+const DynamicPDFViewer = dynamic(
+  () => import("@react-pdf/renderer").then((mod) => mod.PDFViewer),
+  { ssr: false }
+);
 
 export default function QuotationPdfPage() {
   const params = useParams();
@@ -156,7 +163,7 @@ export default function QuotationPdfPage() {
           taxID: companyData.tax_id,
           phone: companyData.phone,
           // @react-pdf cannot use local URLs. We must use an absolute URL.
-          logoUrl: "https://placehold.co/150x50/10B981/FFF?text=MyFinan$e", 
+          logoUrl: "/MyFinance.png", 
         };
         setCompanyInfo(mappedCompanyInfo);
 
@@ -198,8 +205,27 @@ export default function QuotationPdfPage() {
 
   // --- 7. Render PDF ---
   return (
-    <PDFViewer style={{ width: "100%", height: "100vh" }}>
-      <QuotationDocument data={pdfData} companyInfo={companyInfo} />
-    </PDFViewer>
+    <div className="flex flex-col h-screen w-full">
+      <header className="flex items-center justify-between p-4 bg-primary text-primary-foreground">
+        <div className="flex items-center space-x-4">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => router.back()}
+            className="bg-transparent border-primary-foreground text-primary-foreground hover:bg-primary-foreground/20"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="text-xl font-bold text-primary-foreground">
+            {quotation_number}
+          </h1>
+        </div>
+      </header>
+      <div className="flex-1">
+        <DynamicPDFViewer style={{ width: "100%", height: "100%" }}>
+          <QuotationDocument data={pdfData} companyInfo={companyInfo} />
+        </DynamicPDFViewer>
+      </div>
+    </div>
   );
 }
