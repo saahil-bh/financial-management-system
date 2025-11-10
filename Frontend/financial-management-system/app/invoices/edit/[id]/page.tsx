@@ -5,56 +5,91 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus, Trash2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 
+// Define the shape of a line item
 type LineItem = {
-  id: number;
+  id: number | string; // Can be DB ID (number) or temp ID (string)
   description: string;
-  qty: number;
-  unitPrice: number;
+  quantity: number; // Match backend model
+  unit_price: number; // Match backend model
 };
 
-const VAT_RATE = 0.07;
+// VAT Rate
+const VAT_RATE = 0.07; // 7%
 
+// Your backend API URL
 const API_URL = "http://localhost:8000";
 
-const getFormattedDate = (date: Date): string => {
-  const yyyy = date.getFullYear();
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const dd = String(date.getDate()).padStart(2, "0");
-  return `${yyyy}${mm}${dd}`;
-};
-
-export default function CreateInvoicePage() {
+export default function EditInvoicePage() {
   const router = useRouter();
+  const params = useParams();
   const { token } = useAuth();
 
+  const id = params.id as string; // This is the i_id from the URL
+
+  // --- State for all form fields ---
+  const [lineItems, setLineItems] = React.useState<LineItem[]>([]);
   const [invoiceNumber, setInvoiceNumber] = React.useState("");
   const [customerName, setCustomerName] = React.useState("");
   const [customerAddress, setCustomerAddress] = React.useState("");
   const [paymentTerm, setPaymentTerm] = React.useState("");
-
-  const [lineItems, setLineItems] = React.useState<LineItem[]>([
-    { id: 1, description: "", qty: 1, unitPrice: 0 },
-  ]);
-
   const [isLoading, setIsLoading] = React.useState(false);
+  const [isFetching, setIsFetching] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
+  // --- 1. Fetch existing invoice data on load ---
   React.useEffect(() => {
-    const suggestedId = `INV-${getFormattedDate(new Date())}-`;
-    setInvoiceNumber(suggestedId);
-  }, []);
+    if (!id || !token) return;
 
+    const fetchInvoice = async () => {
+      setIsFetching(true);
+      setError(null);
+      try {
+        const response = await fetch(`${API_URL}/invoice/${id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) {
+          const err = await response.json();
+          throw new Error(err.detail || "Failed to fetch invoice details.");
+        }
+        const data = await response.json();
+
+        // --- 2. Pre-populate the form with fetched data ---
+        setInvoiceNumber(data.invoice_number);
+        setCustomerName(data.customer_name);
+        setCustomerAddress(data.customer_address);
+        setPaymentTerm(data.payment_term);
+        
+        // Format the items from the DB to match our local state
+        const formattedItems = data.items.map((item: any) => ({
+          id: item.item_id, // Use the real database ID
+          description: item.description,
+          quantity: item.quantity,
+          unit_price: parseFloat(item.unit_price), // Ensure it's a number
+        }));
+        setLineItems(formattedItems);
+
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setIsFetching(false);
+      }
+    };
+
+    fetchInvoice();
+  }, [id, token]); // Re-run if ID or token changes
+
+  // --- Line Item Handlers ---
   const handleLineItemChange = (
-    id: number,
+    id: number | string,
     field: keyof LineItem,
     value: string | number
   ) => {
     setLineItems((prevItems) =>
       prevItems.map((item) => {
         if (item.id === id) {
-          if (field === "qty" || field === "unitPrice") {
+          if (field === "quantity" || field === "unit_price") {
             const numValue = parseFloat(value as string);
             return { ...item, [field]: isNaN(numValue) ? 0 : numValue };
           }
@@ -66,58 +101,56 @@ export default function CreateInvoicePage() {
   };
 
   const handleAddItem = () => {
-    const newId = (lineItems.at(-1)?.id ?? 0) + 1;
+    const newId = `temp-${Math.random()}`; 
     setLineItems([
       ...lineItems,
-      { id: newId, description: "", qty: 1, unitPrice: 0 },
+      { id: newId, description: "", quantity: 1, unit_price: 0 },
     ]);
   };
 
-  const handleRemoveItem = (id: number) => {
+  const handleRemoveItem = (id: number | string) => {
     if (lineItems.length <= 1) return;
     setLineItems((prevItems) => prevItems.filter((item) => item.id !== id));
   };
 
-  // --- Calculations (Unchanged) ---
+  // --- Calculations ---
   const subtotal = React.useMemo(() => {
-    return lineItems.reduce((acc, item) => acc + item.qty * item.unitPrice, 0);
+    return lineItems.reduce((acc, item) => acc + item.quantity * item.unit_price, 0);
   }, [lineItems]);
 
   const vatAmount = subtotal * VAT_RATE;
   const grandTotal = subtotal + vatAmount;
 
-  // --- 6. Generic API handler ---
-  const handleCreateInvoice = async (status: "Draft" | "Submitted") => {
+  // --- 3. Handle the UPDATE (PUT) request ---
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
     setIsLoading(true);
     setError(null);
 
     if (!token) {
-      setError("You are not logged in. Please log in again.");
+      setError("You are not logged in.");
       setIsLoading(false);
       return;
     }
 
-    // Format line items to match backend (quantity, unit_price)
-    const formattedItems = lineItems.map(({ description, qty, unitPrice }) => ({
-      description: description,
-      quantity: qty,
-      unit_price: unitPrice,
+    // Format items for the backend (match InvoiceUpdate model)
+    const formattedItems = lineItems.map(({ description, quantity, unit_price }) => ({
+      description,
+      quantity,
+      unit_price,
     }));
 
-    // Build the payload to match app/invoice.py's InvoiceCreate model
+    // This payload matches your backend's InvoiceUpdate model
     const payload = {
-      invoice_number: invoiceNumber,
       customer_name: customerName,
       customer_address: customerAddress,
       payment_term: paymentTerm,
       itemlist: formattedItems,
-      status: status, // Send the correct status
-      q_id: null, // This is a new invoice, not from a quotation
     };
 
     try {
-      const response = await fetch(`${API_URL}/invoice`, { // Use POST /invoice
-        method: "POST",
+      const response = await fetch(`${API_URL}/invoice/${id}`, {
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
@@ -127,11 +160,11 @@ export default function CreateInvoicePage() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.detail || "Failed to create invoice.");
+        throw new Error(errorData.detail || "Failed to update invoice.");
       }
 
-      alert(`Invoice saved as ${status}!`);
-      router.push("/invoices"); // Redirect to invoices list
+      alert("Invoice updated successfully!");
+      router.push("/invoices"); // Go back to the list
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -139,34 +172,43 @@ export default function CreateInvoicePage() {
     }
   };
 
-  // --- 7. Hook up handlers to buttons ---
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    handleCreateInvoice("Submitted");
-  };
+  // --- 4. Loading/Error states for the page ---
+  if (isFetching) {
+    return (
+      <div className="flex justify-center items-center min-h-[50vh]">
+        <p>Loading invoice...</p>
+      </div>
+    );
+  }
 
-  const handleSaveDraft = () => {
-    handleCreateInvoice("Draft");
-  };
+  if (error && !isFetching) {
+     return (
+      <div className="flex flex-col justify-center items-center min-h-[50vh]">
+        <p className="text-red-500">Error: {error}</p>
+        <Button onClick={() => router.push("/invoices")} className="mt-4">Back to List</Button>
+      </div>
+    );
+  }
 
+  // --- 5. The Form ---
   return (
-    // 8. Hook up form's onSubmit
     <form
-      onSubmit={handleSubmit}
+      onSubmit={handleUpdate}
       className="max-w-4xl mx-auto p-6 space-y-8 border-2 border-primary rounded-2xl shadow-lg shadow-primary/20"
     >
-      <h2 className="text-3xl font-bold text-center">Create an Invoice:</h2>
+      <h2 className="text-3xl font-bold text-center">
+        Edit Invoice: {invoiceNumber}
+      </h2>
 
-      {/* --- 9. Connect Invoice Information inputs to state --- */}
+      {/* --- Invoice Information --- */}
       <section className="space-y-4">
         <h3 className="text-xl font-semibold">Invoice Information:</h3>
         <div className="grid grid-cols-2 gap-4">
           <Input
-            placeholder="Invoice Number (e.g. INV-YYYYMMDD-001)"
-            className="bg-white text-black border-primary border-2 rounded-none"
+            placeholder="Invoice Number"
+            className="bg-gray-200 text-black border-primary border-2 rounded-none"
             value={invoiceNumber}
-            onChange={(e) => setInvoiceNumber(e.target.value)}
-            required
+            disabled // The Invoice Number (INV-2025...) cannot be edited
           />
           <Input
             placeholder="Customer Name"
@@ -192,7 +234,7 @@ export default function CreateInvoicePage() {
         </div>
       </section>
 
-      {/* --- Invoice Line Items (Unchanged) --- */}
+      {/* --- Invoice Line Items --- */}
       <section className="space-y-4">
         <div className="flex justify-between items-center">
           <h3 className="text-xl font-semibold">Invoice:</h3>
@@ -224,22 +266,22 @@ export default function CreateInvoicePage() {
                 type="number"
                 placeholder="1"
                 className="col-span-1 bg-white text-black border-primary border-2 rounded-none"
-                value={item.qty}
+                value={item.quantity}
                 onChange={(e) =>
-                  handleLineItemChange(item.id, "qty", e.target.value)
+                  handleLineItemChange(item.id, "quantity", e.target.value)
                 }
               />
               <Input
                 type="number"
                 placeholder="999.00"
                 className="col-span-2 bg-white text-black border-primary border-2 rounded-none"
-                value={item.unitPrice}
+                value={item.unit_price}
                 onChange={(e) =>
-                  handleLineItemChange(item.id, "unitPrice", e.target.value)
+                  handleLineItemChange(item.id, "unit_price", e.target.value)
                 }
               />
               <span className="col-span-2 text-right">
-                {(item.qty * item.unitPrice).toFixed(2)}
+                {(item.quantity * item.unit_price).toFixed(2)}
               </span>
               <Button
                 type="button"
@@ -256,7 +298,7 @@ export default function CreateInvoicePage() {
         </div>
       </section>
 
-      {/* --- Totals Section (Unchanged) --- */}
+      {/* --- Totals Section --- */}
       <section className="flex justify-end">
         <div className="w-full max-w-sm space-y-2">
           <div className="flex justify-between">
@@ -276,29 +318,29 @@ export default function CreateInvoicePage() {
         </div>
       </section>
 
-      {/* --- 10. Show error message --- */}
+      {/* Show error message if it exists */}
       {error && (
         <p className="text-red-500 text-sm text-center font-bold">{error}</p>
       )}
 
-      {/* --- 11. Hook up Action Buttons --- */}
+      {/* --- Action Buttons --- */}
       <div className="flex justify-end gap-4">
         <Button
-          type="button" // <-- Must be type="button"
+          type="button"
           variant="secondary"
           className="font-bold"
-          onClick={handleSaveDraft} // <-- Hook up onClick
           disabled={isLoading}
+          onClick={() => router.push("/invoices")}
         >
-          Save (Draft)
+          Cancel
         </Button>
         <Button
-          type="submit" // <-- This triggers onSubmit
+          type="submit"
           variant="default"
           className="font-bold"
           disabled={isLoading}
         >
-          {isLoading ? "Submitting..." : "Submit"}
+          {isLoading ? "Saving Changes..." : "Save Changes"}
         </Button>
       </div>
     </form>

@@ -7,7 +7,7 @@ from .database import get_db
 from . import notification_service
 from fastapi import APIRouter, Depends, HTTPException 
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from starlette import status
 from . import db_model
 
@@ -84,11 +84,11 @@ def quoatation2invoice(quotation: db_model.Quotation, db: Session):
     db_invoice = db_model.Invoice(
       q_id = quotation.q_id, 
       u_id = quotation.u_id,
-      invoice_number = f"INV-{quotation.quotation_number}",
+      invoice_number = f"INV-{quotation.quotation_number.replace('Q-', '', 1)}",
       customer_name = quotation.customer_name,
       customer_address = quotation.customer_address,
       payment_term = "Net 30 Days",
-      status = 'Draft',
+      status = 'Submitted',
       total = quotation.total,
       tax = quotation.tax
       )

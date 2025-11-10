@@ -51,6 +51,17 @@ class UserBase(BaseModel):
     class Config:
         from_attributes = True
 
+class CompanyProfileResponse(BaseModel):
+    company_id: int
+    company_name: str
+    company_address: str
+    tax_id: str
+    phone: str
+    email: str
+
+    class Config:
+        from_attributes = True
+
 # test
 @app.get("/hi")
 def hi():

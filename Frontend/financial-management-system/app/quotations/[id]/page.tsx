@@ -6,7 +6,6 @@ import { QuotationDocument } from "@/components/pdf/QuotationDocument";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 
-// --- API URL ---
 const API_URL = "http://localhost:8000";
 
 // --- STATIC COMPANY INFORMATION ---
@@ -20,9 +19,7 @@ const STATIC_COMPANY_INFO = {
   taxID: "420420",
 };
 
-// --- Helper Interfaces ---
 
-// 1. This matches the JSON response from your backend's API
 interface ApiQuotationResponse {
   q_id: number;
   quotation_number: string;
@@ -33,17 +30,16 @@ interface ApiQuotationResponse {
   status: string;
   total: number;
   tax: number;
-  created_at: string; // This will be a full timestamp string
+  created_at: string;
   items: {
     item_id: number;
     description: string;
     quantity: number;
-    unit_price: string; // Comes as string, needs to be parsed
+    unit_price: string;
     total: string;
   }[];
 }
 
-// 2. This matches the props required by your <QuotationDocument> component
 interface PdfData {
   id: string;
   customerInfo: {
