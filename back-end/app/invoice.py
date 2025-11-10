@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import IntegrityError
 from starlette import status
 from . import db_model
+from typing import Optional
 
 router = APIRouter(prefix='/invoice', tags=['invoice'])
 
@@ -36,6 +37,7 @@ class InvoiceCreate(BaseModel):
   customer_name: str
   customer_address: str
   payment_term: str
+  q_id: Optional[int] = None
   itemlist: List[InvoiceItemBase]
   status: str | None = None
   
