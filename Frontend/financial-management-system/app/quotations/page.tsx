@@ -32,8 +32,10 @@ export default function QuotationsPage() {
     setIsLoading(true);
     setError(null);
     try {
+      // This is correct based on your app.py structure
       const endpoint =
         user.role === "Admin" ? "/quotation" : "/quotation/me";
+        
       const response = await fetch(`${API_URL}${endpoint}`, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -105,7 +107,6 @@ export default function QuotationsPage() {
 
       <div className="space-y-4">
         {isUser ? (
-          // --- 1. Pass token and onUpdate to User list ---
           <UserQuotationList
             quotations={quotations}
             token={token}
@@ -123,7 +124,7 @@ export default function QuotationsPage() {
   );
 }
 
-// --- 2. UPDATED UserQuotationList ---
+// --- UPDATED UserQuotationList ---
 interface UserListProps {
   quotations: Quotation[];
   token: string | null;
@@ -134,7 +135,6 @@ function UserQuotationList({ quotations, token, onUpdate }: UserListProps) {
   const [isUpdating, setIsUpdating] = React.useState<number | null>(null);
   const [error, setError] = React.useState<string | null>(null);
 
-  // --- 3. NEW: Handler for "Submit" ---
   const handleSubmit = async (quotationId: number) => {
     if (!token) return;
     setIsUpdating(quotationId);
@@ -159,10 +159,7 @@ function UserQuotationList({ quotations, token, onUpdate }: UserListProps) {
     }
   };
   
-  // --- 4. NEW: Handler for "Delete" ---
   const handleDelete = async (quotationId: number) => {
-    // Note: You should add a confirmation modal here in a real app
-    // We are skipping it because window.confirm() is not allowed.
     if (!token) return;
     setIsUpdating(quotationId);
     setError(null);
@@ -193,7 +190,6 @@ function UserQuotationList({ quotations, token, onUpdate }: UserListProps) {
 
   return (
     <>
-      {/* Show error at the top */}
       {error && <p className="text-red-500 text-center">{error}</p>}
 
       {/* Drafts */}
@@ -210,18 +206,21 @@ function UserQuotationList({ quotations, token, onUpdate }: UserListProps) {
           <span>{q.quotation_number}</span>
           <span>{q.customer_name}</span>
           <div className="space-x-2">
-            <Link href={`/quotations/${q.q_id}`}>
+            
+            {/* --- 1. FIX: Use quotation_number for Details link --- */}
+            <Link href={`/quotations/number/${q.quotation_number}`}>
               <Button variant="secondary" disabled={isUpdating === q.q_id}>
                 Details
               </Button>
             </Link>
-            {/* --- 5. FIX: "Edit" button is now a Link --- */}
-            <Link href={`/quotations/edit/${q.q_id}`}>
+            
+            {/* --- 2. FIX: Use quotation_number for Edit link --- */}
+            <Link href={`/quotations/edit/${q.quotation_number}`}>
               <Button variant="secondary" disabled={isUpdating === q.q_id}>
                 Edit
               </Button>
             </Link>
-            {/* --- 6. FIX: "Submit" button now works --- */}
+            
             <Button
               variant="default"
               onClick={() => handleSubmit(q.q_id)}
@@ -229,7 +228,7 @@ function UserQuotationList({ quotations, token, onUpdate }: UserListProps) {
             >
               {isUpdating === q.q_id ? "..." : "Submit"}
             </Button>
-            {/* --- 7. FIX: "Delete" button now works --- */}
+            
             <Button
               variant="destructive"
               onClick={() => handleDelete(q.q_id)}
@@ -257,16 +256,21 @@ function UserQuotationList({ quotations, token, onUpdate }: UserListProps) {
           <span>{q.quotation_number}</span>
           <span>{q.customer_name}</span>
           <div className="space-x-2">
-            <Link href={`/quotations/${q.q_id}`}>
+
+            {/* --- 3. FIX: Use quotation_number for Details link --- */}
+            <Link href={`/quotations/number/${q.quotation_number}`}>
               <Button variant="secondary" disabled={isUpdating === q.q_id}>
                 Details
               </Button>
             </Link>
-            <Link href={`/quotations/edit/${q.q_id}`}>
+
+            {/* --- 4. FIX: Use quotation_number for Edit link --- */}
+            <Link href={`/quotations/edit/${q.quotation_number}`}>
               <Button variant="secondary" disabled={isUpdating === q.q_id}>
                 Edit
               </Button>
             </Link>
+
             <Button
               variant="destructive"
               onClick={() => handleDelete(q.q_id)}
@@ -294,9 +298,12 @@ function UserQuotationList({ quotations, token, onUpdate }: UserListProps) {
           <span>{q.quotation_number}</span>
           <span>{q.customer_name}</span>
           <div className="space-x-2">
-            <Link href={`/quotations/${q.q_id}`}>
+
+            {/* --- 5. FIX: Use quotation_number for Details link --- */}
+            <Link href={`/quotations/number/${q.quotation_number}`}>
               <Button variant="secondary">Details</Button>
             </Link>
+
             <Button variant="secondary">Invoice</Button>
           </div>
         </div>
@@ -318,9 +325,12 @@ function UserQuotationList({ quotations, token, onUpdate }: UserListProps) {
           <span>{q.quotation_number}</span>
           <span>{q.customer_name}</span>
           <div className="space-x-2">
-            <Link href={`/quotations/${q.q_id}`}>
+
+            {/* --- 6. FIX: Use quotation_number for Details link --- */}
+            <Link href={`/quotations/number/${q.quotation_number}`}>
               <Button variant="secondary">Details</Button>
             </Link>
+
             <Button
               variant="destructive"
               onClick={() => handleDelete(q.q_id)}
@@ -335,7 +345,7 @@ function UserQuotationList({ quotations, token, onUpdate }: UserListProps) {
   );
 }
 
-// --- AdminQuotationList (This component was already correct) ---
+// --- UPDATED AdminQuotationList ---
 interface AdminListProps {
   quotations: Quotation[];
   token: string | null;
@@ -354,7 +364,6 @@ function AdminQuotationList({ quotations, token, onUpdate }: AdminListProps) {
       setError("Not authenticated");
       return;
     }
-
     setIsUpdating(quotationId);
     setError(null);
 
@@ -375,7 +384,6 @@ function AdminQuotationList({ quotations, token, onUpdate }: AdminListProps) {
       }
 
       onUpdate(); 
-      
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -407,11 +415,14 @@ function AdminQuotationList({ quotations, token, onUpdate }: AdminListProps) {
           <span>{q.quotation_number}</span>
           <span>{q.customer_name}</span>
           <div className="space-x-2">
-            <Link href={`/quotations/${q.q_id}`}>
+
+            {/* --- 7. FIX: Use quotation_number for Details link --- */}
+            <Link href={`/quotations/number/${q.quotation_number}`}>
               <Button variant="secondary" disabled={isUpdating === q.q_id}>
                 Details
               </Button>
             </Link>
+
             <Button
               variant="default"
               onClick={() => handleUpdateStatus(q.q_id, "Approved")}
@@ -430,7 +441,7 @@ function AdminQuotationList({ quotations, token, onUpdate }: AdminListProps) {
         </div>
       ))}
 
-      {/* Approved (Unchanged) */}
+      {/* Approved */}
       {approvedQuotations.length > 0 && (
         <div className="bg-primary p-3">
           <span className="font-bold text-lg text-primary-foreground">
@@ -446,15 +457,18 @@ function AdminQuotationList({ quotations, token, onUpdate }: AdminListProps) {
           <span>{q.quotation_number}</span>
           <span>{q.customer_name}</span>
           <div className="space-x-2">
-            <Link href={`/quotations/${q.q_id}`}>
+
+            {/* --- 8. FIX: Use quotation_number for Details link --- */}
+            <Link href={`/quotations/number/${q.quotation_number}`}>
               <Button variant="secondary">Details</Button>
             </Link>
+            
             <Button variant="secondary">Invoice</Button>
           </div>
         </div>
       ))}
 
-      {/* Rejected (Unchanged) */}
+      {/* Rejected */}
       {rejectedQuotations.length > 0 && (
         <div className="bg-destructive p-3">
           <span className="font-bold text-lg text-destructive-foreground">
@@ -470,9 +484,12 @@ function AdminQuotationList({ quotations, token, onUpdate }: AdminListProps) {
           <span>{q.quotation_number}</span>
           <span>{q.customer_name}</span>
           <div className="space-x-2">
-            <Link href={`/quotations/${q.q_id}`}>
+
+            {/* --- 9. FIX: Use quotation_number for Details link --- */}
+            <Link href={`/quotations/number/${q.quotation_number}`}>
               <Button variant="secondary">Details</Button>
             </Link>
+
           </div>
         </div>
       ))}

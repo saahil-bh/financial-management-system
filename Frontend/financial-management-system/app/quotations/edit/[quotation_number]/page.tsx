@@ -7,15 +7,18 @@ import { Plus, Trash2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter, useParams } from "next/navigation";
 
+// Define the shape of a line item
 type LineItem = {
-  id: number | string;
+  id: number | string; // Can be DB ID (number) or temp ID (string)
   description: string;
-  quantity: number;
-  unit_price: number;
+  quantity: number; // Match backend model
+  unit_price: number; // Match backend model
 };
 
-const VAT_RATE = 0.07;
+// VAT Rate
+const VAT_RATE = 0.07; // 7%
 
+// Your backend API URL
 const API_URL = "http://localhost:8000";
 
 export default function EditQuotationPage() {
@@ -23,8 +26,11 @@ export default function EditQuotationPage() {
   const params = useParams();
   const { token } = useAuth();
 
-  const id = params.quotation_number as string;
+  // 1. Get the quotation_number from the URL
+  const quotation_number = params.quotation_number as string;
 
+  // --- State for all form fields ---
+  const [databaseId, setDatabaseId] = React.useState<number | null>(null); // To store the q_id
   const [lineItems, setLineItems] = React.useState<LineItem[]>([]);
   const [quotationNumber, setQuotationNumber] = React.useState("");
   const [customerName, setCustomerName] = React.useState("");
@@ -34,14 +40,16 @@ export default function EditQuotationPage() {
   const [isFetching, setIsFetching] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
+  // --- 2. Fetch existing quotation data on load ---
   React.useEffect(() => {
-    if (!id || !token) return;
+    if (!quotation_number || !token) return;
 
     const fetchQuotation = async () => {
       setIsFetching(true);
       setError(null);
       try {
-        const response = await fetch(`${API_URL}/quotation/${id}`, {
+        // 3. Fetch using the new endpoint
+        const response = await fetch(`${API_URL}/quotation/number/${quotation_number}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!response.ok) {
@@ -49,6 +57,8 @@ export default function EditQuotationPage() {
         }
         const data = await response.json();
 
+        // --- 4. Pre-populate the form with fetched data ---
+        setDatabaseId(data.q_id); // <-- IMPORTANT: Store the integer ID
         setQuotationNumber(data.quotation_number);
         setCustomerName(data.customer_name);
         setCustomerAddress(data.customer_address);
@@ -70,8 +80,9 @@ export default function EditQuotationPage() {
     };
 
     fetchQuotation();
-  }, [id, token]);
+  }, [quotation_number, token]); // Re-run if number or token changes
 
+  // --- Line Item Handlers ---
   const handleLineItemChange = (
     id: number | string,
     field: keyof LineItem,
@@ -104,6 +115,7 @@ export default function EditQuotationPage() {
     setLineItems((prevItems) => prevItems.filter((item) => item.id !== id));
   };
 
+  // --- Calculations ---
   const subtotal = React.useMemo(() => {
     return lineItems.reduce((acc, item) => acc + item.quantity * item.unit_price, 0);
   }, [lineItems]);
@@ -111,13 +123,15 @@ export default function EditQuotationPage() {
   const vatAmount = subtotal * VAT_RATE;
   const grandTotal = subtotal + vatAmount;
 
+  // --- 5. Handle the UPDATE (PUT) request ---
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
 
-    if (!token) {
-      setError("You are not logged in.");
+    // 6. Check if we stored the database ID
+    if (!token || !databaseId) {
+      setError("You are not logged in or the quotation ID is missing.");
       setIsLoading(false);
       return;
     }
@@ -136,7 +150,8 @@ export default function EditQuotationPage() {
     };
 
     try {
-      const response = await fetch(`${API_URL}/quotation/${id}`, {
+      // 7. Call the PUT endpoint using the numeric databaseId
+      const response = await fetch(`${API_URL}/quotation/${databaseId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -159,6 +174,7 @@ export default function EditQuotationPage() {
     }
   };
 
+  // --- Loading/Error states ---
   if (isFetching) {
     return (
       <div className="flex justify-center items-center min-h-[50vh]">
@@ -176,6 +192,7 @@ export default function EditQuotationPage() {
     );
   }
 
+  // --- The Form ---
   return (
     <form
       onSubmit={handleUpdate}
@@ -185,6 +202,7 @@ export default function EditQuotationPage() {
         Edit Quotation: {quotationNumber}
       </h2>
 
+      {/* --- Quotation Information --- */}
       <section className="space-y-4">
         <h3 className="text-xl font-semibold">Quotation Information:</h3>
         <div className="grid grid-cols-2 gap-4">
@@ -192,7 +210,7 @@ export default function EditQuotationPage() {
             placeholder="Quotation ID"
             className="bg-gray-200 text-black border-primary border-2 rounded-none"
             value={quotationNumber}
-            disabled
+            disabled // The Quotation Number (Q-2025...) cannot be edited
           />
           <Input
             placeholder="Customer Name"
@@ -219,6 +237,7 @@ export default function EditQuotationPage() {
         </div>
       </section>
 
+      {/* --- Quotation Line Items --- */}
       <section className="space-y-4">
         <div className="flex justify-between items-center">
           <h3 className="text-xl font-semibold">Quotation:</h3>
@@ -282,6 +301,7 @@ export default function EditQuotationPage() {
         </div>
       </section>
 
+      {/* --- Totals Section --- */}
       <section className="flex justify-end">
         <div className="w-full max-w-sm space-y-2">
           <div className="flex justify-between">
@@ -301,10 +321,12 @@ export default function EditQuotationPage() {
         </div>
       </section>
 
+      {/* Show error message if it exists */}
       {error && (
         <p className="text-red-500 text-sm text-center font-bold">{error}</p>
       )}
 
+      {/* --- Action Buttons --- */}
       <div className="flex justify-end gap-4">
         <Button
           type="button"

@@ -62,6 +62,17 @@ class CompanyProfileResponse(BaseModel):
     class Config:
         from_attributes = True
 
+@app.get("/company-profile", response_model=CompanyProfileResponse)
+def get_company_profile(db: DBDependency):
+    profile = db.query(db_model.CompanyProfile).first() 
+    
+    if not profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail="Company profile has not been set up."
+        )
+    return profile
+
 # test
 @app.get("/hi")
 def hi():
