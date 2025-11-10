@@ -92,11 +92,13 @@ def invoice2receipt(invoice: db_model.Invoice, db: Session):
     if check_receipt:
         print(f"Receipt for Invoice num {invoice.invoice_number} already exists. No Worry")
         return check_receipt
+    
+    invoice_num_suffix = invoice.invoice_number.replace("INV-", "")
 
     db_receipt = db_model.Receipt(
       i_id = invoice.i_id,
       u_id = invoice.u_id,
-      receipt_number = f"RC-{invoice.invoice_number}",
+      receipt_number = f"RC-{invoice_num_suffix}",
       payment_date = datetime.now(timezone.utc),
       payment_method = 'Bank Transfer',
       status = 'Pending',

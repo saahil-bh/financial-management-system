@@ -21,9 +21,6 @@ interface Invoice {
 }
 
 // --- HELPER COMPONENT (Quotation Button) ---
-// This component fetches the quotation number from the q_id
-// and then navigates to the correct details page.
-
 function QuotationLinkButton({ q_id, token }: { q_id: number; token: string | null }) {
   const router = useRouter();
   const [isLoading, setIsLoading] = React.useState(false);
@@ -35,7 +32,6 @@ function QuotationLinkButton({ q_id, token }: { q_id: number; token: string | nu
     setIsLoading(true);
     setError(null);
     try {
-      // We assume you have an endpoint to get a quotation by its ID
       const response = await fetch(`${API_URL}/quotation/${q_id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -50,7 +46,6 @@ function QuotationLinkButton({ q_id, token }: { q_id: number; token: string | nu
          throw new Error("Quotation number not found in response.");
       }
 
-      // Now that we have the quotation_number, we can navigate
       router.push(`/quotations/number/${data.quotation_number}`);
 
     } catch (err: any) {
@@ -340,8 +335,8 @@ function UserInvoiceList({ invoices, token, onUpdate }: UserListProps) {
             {inv.q_id && <QuotationLinkButton q_id={inv.q_id} token={token} />}
             
             {/* --- THIS IS THE FIX --- */}
-            {/* We construct the receipt number based on the invoice number */}
-            <Link href={`/receipts/number/RC-${inv.invoice_number}`}>
+            {/* We construct the receipt number by stripping "INV-" from the invoice number */}
+            <Link href={`/receipts/number/RC-${inv.invoice_number.replace("INV-", "")}`}>
               <Button variant="secondary">Receipt</Button>
             </Link>
 
@@ -525,8 +520,8 @@ function AdminInvoiceList({ invoices, token, onUpdate }: AdminListProps) {
             {inv.q_id && <QuotationLinkButton q_id={inv.q_id} token={token} />}
             
             {/* --- THIS IS THE FIX --- */}
-            {/* We construct the receipt number based on the invoice number */}
-            <Link href={`/receipts/number/RC-${inv.invoice_number}`}>
+            {/* We construct the receipt number by stripping "INV-" from the invoice number */}
+            <Link href={`/receipts/number/RC-${inv.invoice_number.replace("INV-", "")}`}>
               <Button variant="secondary">Receipt</Button>
             </Link>
           </div>
