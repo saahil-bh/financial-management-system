@@ -2,16 +2,46 @@
 
 import { Button } from "@/components/ui/button";
 import * as React from "react";
-import Link from "next/link";
+import Link from "next/link"; // Import Link
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/context/AuthContext";
-import api from "@/lib/api";
+import { useAuth } from "@/context/AuthContext"; // Use standard alias
+import axios from "axios";
 
+// --- API CLIENT WITH AUTH FIX ---
+const api = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000",
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+api.interceptors.request.use(
+  (config) => {
+    if (typeof window !== "undefined") {
+      const token = localStorage.getItem("access_token");
+      if (token) {
+        config.headers["Authorization"] = `Bearer ${token}`;
+      }
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+// --- END OF FIX ---
+
+// Updated Receipt interface based on your database schema
 interface Receipt {
-  id: string;
+  r_id: number;
+  i_id: number;
+  u_id: string;
+  receipt_number: string;
   status: string;
-  name: string;
-  // ... add any other fields the API returns
+  amount: number;
+  payment_date: string;
+  payment_method: string | null;
+  created_at: string;
 }
 
 export default function ReceiptsPage() {
@@ -20,31 +50,37 @@ export default function ReceiptsPage() {
   const [receipts, setReceipts] = React.useState<Receipt[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
 
-  
-  React.useEffect(() => {
-    if (!user) {
-      return;
+  const fetchReceipts = async () => {
+    if (!user) return;
+    setIsLoading(true);
+    try {
+      const endpoint = user.role === "Admin" ? "/receipt/" : "/receipt/me/";
+      const response = await api.get(endpoint);
+      setReceipts(response.data);
+    } catch (err) {
+      console.error("Failed to fetch receipts:", err);
+    } finally {
+      setIsLoading(false);
     }
+  };
 
-    const fetchReceipts = async () => {
-      setIsLoading(true);
-      try {
-        
-        const endpoint = user.role === "Admin" 
-          ? "/receipts"
-          : "/receipts/me";
-        
-        const response = await api.get(endpoint);
-        setReceipts(response.data);
-      } catch (err) {
-        console.error("Failed to fetch receipts:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchReceipts();
+  React.useEffect(() => {
+    if (user) {
+      fetchReceipts();
+    }
   }, [user]);
+
+  const handleUpdateStatus = async (
+    receiptId: number,
+    newStatus: "Approved" | "Rejected"
+  ) => {
+    try {
+      await api.put(`/receipt/${receiptId}/approve?status=${newStatus}`);
+      fetchReceipts(); // Refresh the list
+    } catch (err) {
+      console.error(`Failed to ${newStatus} receipt:`, err);
+    }
+  };
 
   if (isLoading || !user) {
     return (
@@ -58,14 +94,13 @@ export default function ReceiptsPage() {
 
   return (
     <div className="space-y-6">
-
-      <div className="flex items-center justify-between bg-primary p-4 ">
+      <div className="flex items-center justify-between bg-primary p-4 rounded-lg">
         <h2 className="text-2xl font-bold text-primary-foreground">
-          Welcome back, {user.name}!
+          Welcome back, {user?.name || "User"}!
         </h2>
         {!isUser && (
           <Button
-            onClick={() => router.push("/logs")} // Use router.push
+            onClick={() => router.push("/logs")}
             className="bg-white text-black font-bold hover:bg-gray-200"
           >
             Logs
@@ -78,20 +113,21 @@ export default function ReceiptsPage() {
       </h3>
 
       <div className="space-y-4">
-        {/* Pass the fetched receipts down as a prop */}
         {isUser ? (
           <UserReceiptsList receipts={receipts} />
         ) : (
-          <AdminReceiptsList receipts={receipts} />
+          <AdminReceiptsList
+            receipts={receipts}
+            onUpdateStatus={handleUpdateStatus}
+          />
         )}
       </div>
     </div>
   );
 }
 
-// --- Regular User (Updated to accept props) ---
+// --- Regular User ---
 function UserReceiptsList({ receipts }: { receipts: Receipt[] }) {
-  // Filter the 'receipts' prop, not the old mock data
   const pendingReceipts = receipts.filter((q) => q.status === "Pending");
   const approvedReceipts = receipts.filter((q) => q.status === "Approved");
   const rejectedReceipts = receipts.filter((q) => q.status === "Rejected");
@@ -100,7 +136,7 @@ function UserReceiptsList({ receipts }: { receipts: Receipt[] }) {
     <>
       {/* Pending */}
       {pendingReceipts.length > 0 && (
-        <div className="bg-chart-4 p-3">
+        <div className="bg-chart-4 p-3 rounded-t-lg">
           <span className="font-bold text-lg text-warning-foreground">
             Pending
           </span>
@@ -108,22 +144,22 @@ function UserReceiptsList({ receipts }: { receipts: Receipt[] }) {
       )}
       {pendingReceipts.map((q) => (
         <div
-          key={q.id}
+          key={q.r_id}
           className="p-3 rounded-lg flex items-center justify-between border border-gray-700"
         >
-          <span>{q.id}</span>
+          <span>{q.receipt_number}</span>
           <div className="space-x-2">
-            {/* TODO: Add Link when /receipts/[id] page exists */}
-            {/* <Link href={`/receipts/${q.id}`}> */}
+            {/* --- UPDATED BUTTON --- */}
+            <Link href={`/receipts/number/${q.receipt_number}`}>
               <Button variant="secondary">Details</Button>
-            {/* </Link> */}
+            </Link>
           </div>
         </div>
       ))}
 
       {/* Approved */}
       {approvedReceipts.length > 0 && (
-        <div className="bg-primary p-3">
+        <div className="bg-primary p-3 rounded-t-lg mt-4">
           <span className="font-bold text-lg text-primary-foreground">
             Approved
           </span>
@@ -131,14 +167,15 @@ function UserReceiptsList({ receipts }: { receipts: Receipt[] }) {
       )}
       {approvedReceipts.map((q) => (
         <div
-          key={q.id}
+          key={q.r_id}
           className="p-3 rounded-lg flex items-center justify-between border border-gray-700"
         >
-          <span>{q.id}</span>
+          <span>{q.receipt_number}</span>
           <div className="space-x-2">
-            {/* <Link href={`/receipts/${q.id}`}> */}
+            {/* --- UPDATED BUTTONS --- */}
+            <Link href={`/receipts/number/${q.receipt_number}`}>
               <Button variant="secondary">Details</Button>
-            {/* </Link> */}
+            </Link>
             <Button variant="secondary">Quotation</Button>
             <Button variant="secondary">Invoice</Button>
           </div>
@@ -147,7 +184,7 @@ function UserReceiptsList({ receipts }: { receipts: Receipt[] }) {
 
       {/* Rejected */}
       {rejectedReceipts.length > 0 && (
-        <div className="bg-destructive p-3">
+        <div className="bg-destructive p-3 rounded-t-lg mt-4">
           <span className="font-bold text-lg text-destructive-foreground">
             Rejected
           </span>
@@ -155,14 +192,15 @@ function UserReceiptsList({ receipts }: { receipts: Receipt[] }) {
       )}
       {rejectedReceipts.map((q) => (
         <div
-          key={q.id}
+          key={q.r_id}
           className="p-3 rounded-lg flex items-center justify-between border border-gray-700"
         >
-          <span>{q.id}</span>
+          <span>{q.receipt_number}</span>
           <div className="space-x-2">
-            {/* <Link href={`/receipts/${q.id}`}> */}
+            {/* --- UPDATED BUTTON --- */}
+            <Link href={`/receipts/number/${q.receipt_number}`}>
               <Button variant="secondary">Details</Button>
-            {/* </Link> */}
+            </Link>
           </div>
         </div>
       ))}
@@ -170,9 +208,13 @@ function UserReceiptsList({ receipts }: { receipts: Receipt[] }) {
   );
 }
 
-// --- Admins (Updated to accept props) ---
-function AdminReceiptsList({ receipts }: { receipts: Receipt[] }) {
-  // Filter the 'receipts' prop, not the old mock data
+// --- Admins ---
+interface AdminListProps {
+  receipts: Receipt[];
+  onUpdateStatus: (receiptId: number, status: "Approved" | "Rejected") => void;
+}
+
+function AdminReceiptsList({ receipts, onUpdateStatus }: AdminListProps) {
   const pendingReceipts = receipts.filter((q) => q.status === "Pending");
   const approvedReceipts = receipts.filter((q) => q.status === "Approved");
   const rejectedReceipts = receipts.filter((q) => q.status === "Rejected");
@@ -181,7 +223,7 @@ function AdminReceiptsList({ receipts }: { receipts: Receipt[] }) {
     <>
       {/* Pending */}
       {pendingReceipts.length > 0 && (
-        <div className="bg-chart-4 p-3">
+        <div className="bg-chart-4 p-3 rounded-t-lg">
           <span className="font-bold text-lg text-warning-foreground">
             Pending
           </span>
@@ -189,23 +231,34 @@ function AdminReceiptsList({ receipts }: { receipts: Receipt[] }) {
       )}
       {pendingReceipts.map((q) => (
         <div
-          key={q.id}
+          key={q.r_id}
           className="p-3 rounded-lg flex items-center justify-between border border-gray-700"
         >
-          <span>{q.id}</span>
+          <span>{q.receipt_number}</span>
           <div className="space-x-2">
-            {/* <Link href={`/receipts/${q.id}`}> */}
+            {/* --- UPDATED BUTTON --- */}
+            <Link href={`/receipts/number/${q.receipt_number}`}>
               <Button variant="secondary">Details</Button>
-            {/* </Link> */}
-            <Button variant="default">Approve</Button>
-            <Button variant="destructive">Reject</Button>
+            </Link>
+            <Button
+              variant="default"
+              onClick={() => onUpdateStatus(q.r_id, "Approved")}
+            >
+              Approve
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => onUpdateStatus(q.r_id, "Rejected")}
+            >
+              Reject
+            </Button>
           </div>
         </div>
       ))}
 
       {/* Approved */}
       {approvedReceipts.length > 0 && (
-        <div className="bg-primary p-3">
+        <div className="bg-primary p-3 rounded-t-lg mt-4">
           <span className="font-bold text-lg text-primary-foreground">
             Approved
           </span>
@@ -213,14 +266,15 @@ function AdminReceiptsList({ receipts }: { receipts: Receipt[] }) {
       )}
       {approvedReceipts.map((q) => (
         <div
-          key={q.id}
+          key={q.r_id}
           className="p-3 rounded-lg flex items-center justify-between border border-gray-700"
         >
-          <span>{q.id}</span>
+          <span>{q.receipt_number}</span>
           <div className="space-x-2">
-            {/* <Link href={`/receipts/${q.id}`}> */}
+            {/* --- UPDATED BUTTONS --- */}
+            <Link href={`/receipts/number/${q.receipt_number}`}>
               <Button variant="secondary">Details</Button>
-            {/* </Link> */}
+            </Link>
             <Button variant="secondary">Quotation</Button>
             <Button variant="secondary">Invoice</Button>
           </div>
@@ -229,7 +283,7 @@ function AdminReceiptsList({ receipts }: { receipts: Receipt[] }) {
 
       {/* Rejected */}
       {rejectedReceipts.length > 0 && (
-        <div className="bg-destructive p-3">
+        <div className="bg-destructive p-3 rounded-t-lg mt-4">
           <span className="font-bold text-lg text-destructive-foreground">
             Rejected
           </span>
@@ -237,14 +291,15 @@ function AdminReceiptsList({ receipts }: { receipts: Receipt[] }) {
       )}
       {rejectedReceipts.map((q) => (
         <div
-          key={q.id}
+          key={q.r_id}
           className="p-3 rounded-lg flex items-center justify-between border border-gray-700"
         >
-          <span>{q.id}</span>
+          <span>{q.receipt_number}</span>
           <div className="space-x-2">
-            {/* <Link href={`/receipts/${q.id}`}> */}
+            {/* --- UPDATED BUTTON --- */}
+            <Link href={`/receipts/number/${q.receipt_number}`}>
               <Button variant="secondary">Details</Button>
-            {/* </Link> */}
+            </Link>
           </div>
         </div>
       ))}
