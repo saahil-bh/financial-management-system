@@ -38,8 +38,7 @@ class InvoiceCreate(BaseModel):
   payment_term: str
   itemlist: List[InvoiceItemBase]
   status: str | None = None
-  q_id: int | None = None
-
+  
   class Config:
     from_attributes = True
 
@@ -88,12 +87,11 @@ def invoice2receipt(invoice: db_model.Invoice, db: Session):
         return check_receipt
 
     db_receipt = db_model.Receipt(
-      i_id = invoice.q_id, # This looks like a bug, should it be invoice.i_id?
+      i_id = invoice.i_id,
       u_id = invoice.u_id,
       receipt_number = f"RC-{invoice.invoice_number}",
-      customer_name = invoice.customer_name,
-      customer_address = invoice.customer_address,
       payment_date = datetime.now(timezone.utc),
+      payment_method = 'Bank Transfer',
       status = 'Pending',
       amount = invoice.total,
       )
@@ -310,6 +308,7 @@ def invoice_approve(invoice_id: int, status: str, db: DBDependency, current_user
 
   if status == 'Approved':
     try:
+      invoice2receipt(invoice, db)
       invoice.status = 'Approved'
       db.commit()
       db.refresh(invoice)

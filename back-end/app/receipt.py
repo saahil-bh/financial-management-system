@@ -95,6 +95,11 @@ def receipt_submit(receipt_id: int, db: DBDependency, current_user: Annotated[db
     if receipt.status != 'Draft':
       raise HTTPException(status_code=400, detail=f"Receipt cannot be submitted. Current status is '{receipt.status}'.")
     
+    # --- NOTIFICATION LOGIC ---
+    # This runs only if the try block succeeds
+    message = f"Receipt {receipt.receipt_number} (Total: {receipt.total}) has been submitted for approval by {current_user.name}."
+    subject = f"Approval Required: Receipt {receipt.receipt_number}"
+
     try:
         receipt.status = 'Submitted'
         db.commit()
@@ -128,8 +133,8 @@ def receipt_approve(receipt_id: int, status: str, db: DBDependency, current_user
       raise HTTPException(status_code=500, detail=f"Database error during submission: {e}")
     finally:
       if target_user:
-        message = f"Good news! Your Receipt R-{receipt.r_id} (Total: {receipt.total}) has been APPROVED by admin."
-        subject = f"Your Receipt R-{receipt.r_id} was Approved"
+        message = f"Good news! Your Receipt {receipt.receipt_number} (Total: {receipt.total}) has been APPROVED by admin."
+        subject = f"Your Receipt {receipt.receipt_number} was Approved"
         notification_service.dispatch_notification(db, target_user, message, subject)
       return receipt
       
@@ -143,8 +148,8 @@ def receipt_approve(receipt_id: int, status: str, db: DBDependency, current_user
       raise HTTPException(status_code=500, detail=f"Database error during submission: {e}")
     finally:
       if target_user:
-        message = f"Update: Your Receipt R-{receipt.r_id} (Total: {receipt.total}) has been REJECTED by admin."
-        subject = f"Your Receipt R-{receipt.r_id} was Rejected"
+        message = f"Update: Your Receipt {receipt.receipt_number} (Total: {receipt.total}) has been REJECTED by admin."
+        subject = f"Your Receipt {receipt.receipt_number} was Rejected"
         notification_service.dispatch_notification(db, target_user, message, subject)
       return receipt
     

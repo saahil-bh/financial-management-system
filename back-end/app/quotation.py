@@ -330,8 +330,8 @@ def quotation_submit(quotation_id: int, db: DBDependency, current_user: Annotate
     
     # --- NOTIFICATION LOGIC ---
     # This runs only if the try block succeeds
-    message = f"Quotation Q-{quotation.q_id} (Total: {quotation.total}) has been submitted for approval by {current_user.name}."
-    subject = f"Approval Required: Quotation Q-{quotation.q_id}"
+    message = f"Quotation: {quotation.quotation_number} (Total: {quotation.total}) has been submitted for approval by {current_user.name}."
+    subject = f"Approval Required: Quotation {quotation.quotation_number}"
     
     # Find all admins
     admins = db.query(db_model.User).filter(db_model.User.role == 'Admin').all()
@@ -373,8 +373,8 @@ def quotation_approve(quotation_id: int, status: str, db: DBDependency, current_
       raise HTTPException(status_code=500, detail=f"Database error during submission: {e}")
     finally:
       if target_user:
-        message = f"Good news bro! Your Quotation Q-{quotation.q_id} (Total: {quotation.total}) has been APPROVED by admin."
-        subject = f"Your Quotation Q-{quotation.q_id} was Approved"
+        message = f"Good news bro! Your Quotation {quotation.quotation_number} (Total: {quotation.total}) has been APPROVED by admin."
+        subject = f"Your Quotation Quotation {quotation.quotation_number} was Approved"
         notification_service.dispatch_notification(db, target_user, message, subject)
       return quotation
       
@@ -388,7 +388,7 @@ def quotation_approve(quotation_id: int, status: str, db: DBDependency, current_
       raise HTTPException(status_code=500, detail=f"Database error during submission: {e}")
     finally:
       if target_user:
-        message = f"Update: Your Quotation Q-{quotation.q_id} (Total: {quotation.total}) has been REJECTED by admin."
-        subject = f"Your Quotation Q-{quotation.q_id} was Rejected"
+        message = f"Update: Your Quotation {quotation.quotation_number} (Total: {quotation.total}) has been REJECTED by admin."
+        subject = f"Your Quotation {quotation.quotation_number} was Rejected"
         notification_service.dispatch_notification(db, target_user, message, subject)
       return quotation
