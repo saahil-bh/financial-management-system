@@ -34,7 +34,7 @@ api.interceptors.request.use(
 // Updated Receipt interface based on your database schema
 interface Receipt {
   r_id: number;
-  i_id: number;
+  i_id: number; // We use this to find the invoice & quotation
   u_id: string;
   receipt_number: string;
   status: string;
@@ -44,8 +44,113 @@ interface Receipt {
   created_at: string;
 }
 
+// --- NEW HELPER: InvoiceLinkButton ---
+// Fetches the Invoice Number from the i_id
+function InvoiceLinkButton({ i_id, token }: { i_id: number; token: string | null }) {
+  const router = useRouter();
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const handleClick = async () => {
+    if (!token || !i_id) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      // 1. Fetch the invoice by its ID
+      const response = await api.get(`/invoice/${i_id}`);
+      if (!response.data || !response.data.invoice_number) {
+        throw new Error("Invoice number not found.");
+      }
+      // 2. Navigate to the invoice details page
+      router.push(`/invoices/number/${response.data.invoice_number}`);
+    } catch (err: any) {
+      setError(err.message || "Failed to find invoice.");
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (error) {
+    return <Button variant="secondary" disabled>Error</Button>;
+  }
+
+  return (
+    <Button variant="secondary" onClick={handleClick} disabled={isLoading}>
+      {isLoading ? "..." : "Invoice"}
+    </Button>
+  );
+}
+
+// --- NEW HELPER: QuotationLinkButton (for Receipts) ---
+// Fetches the Invoice, then the Quotation
+function QuotationLinkButton({ i_id, token }: { i_id: number; token: string | null }) {
+  const router = useRouter();
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const [q_id, setQ_id] = React.useState<number | null>(null);
+
+  // 1. Fetch the invoice on load to see if a q_id exists
+  React.useEffect(() => {
+    if (!token || !i_id) return;
+
+    const findQuotationId = async () => {
+      setIsLoading(true);
+      try {
+        const response = await api.get(`/invoice/${i_id}`);
+        if (response.data && response.data.q_id) {
+          setQ_id(response.data.q_id);
+        }
+      } catch (err) {
+        console.error("Failed to check for q_id:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    findQuotationId();
+  }, [i_id, token]);
+
+  const handleClick = async () => {
+    if (!token || !q_id) return;
+
+    setIsLoading(true);
+    setError(null);
+    try {
+      // 2. Now that we have the q_id, fetch the quotation
+      const response = await api.get(`/quotation/${q_id}`);
+      if (!response.data || !response.data.quotation_number) {
+        throw new Error("Quotation number not found.");
+      }
+      // 3. Navigate to the quotation details page
+      router.push(`/quotations/number/${response.data.quotation_number}`);
+    } catch (err: any) {
+      setError(err.message || "Failed to find quotation.");
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // If no q_id was found, don't render the button
+  if (!q_id) {
+    return null;
+  }
+  
+  if (error) {
+    return <Button variant="secondary" disabled>Error</Button>;
+  }
+
+  return (
+    <Button variant="secondary" onClick={handleClick} disabled={isLoading}>
+      {isLoading ? "..." : "Quotation"}
+    </Button>
+  );
+}
+// --- END OF HELPERS ---
+
+
 export default function ReceiptsPage() {
-  const { user } = useAuth();
+  const { user, token } = useAuth(); // Get token
   const router = useRouter();
   const [receipts, setReceipts] = React.useState<Receipt[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -98,6 +203,7 @@ export default function ReceiptsPage() {
         <h2 className="text-2xl font-bold text-primary-foreground">
           Welcome back, {user?.name || "User"}!
         </h2>
+        {/* Removed Logs button from User view, which was incorrect */}
       </div>
 
       <h3 className="text-3xl font-bold">
@@ -106,10 +212,11 @@ export default function ReceiptsPage() {
 
       <div className="space-y-4">
         {isUser ? (
-          <UserReceiptsList receipts={receipts} />
+          <UserReceiptsList receipts={receipts} token={token} />
         ) : (
           <AdminReceiptsList
             receipts={receipts}
+            token={token} // Pass token
             onUpdateStatus={handleUpdateStatus}
           />
         )}
@@ -119,7 +226,7 @@ export default function ReceiptsPage() {
 }
 
 // --- Regular User ---
-function UserReceiptsList({ receipts }: { receipts: Receipt[] }) {
+function UserReceiptsList({ receipts, token }: { receipts: Receipt[], token: string | null }) {
   const pendingReceipts = receipts.filter((q) => q.status === "Pending");
   const approvedReceipts = receipts.filter((q) => q.status === "Approved");
   const rejectedReceipts = receipts.filter((q) => q.status === "Rejected");
@@ -141,7 +248,6 @@ function UserReceiptsList({ receipts }: { receipts: Receipt[] }) {
         >
           <span>{q.receipt_number}</span>
           <div className="space-x-2">
-            {/* --- UPDATED BUTTON --- */}
             <Link href={`/receipts/number/${q.receipt_number}`}>
               <Button variant="secondary">Details</Button>
             </Link>
@@ -164,12 +270,12 @@ function UserReceiptsList({ receipts }: { receipts: Receipt[] }) {
         >
           <span>{q.receipt_number}</span>
           <div className="space-x-2">
-            {/* --- UPDATED BUTTONS --- */}
             <Link href={`/receipts/number/${q.receipt_number}`}>
               <Button variant="secondary">Details</Button>
             </Link>
-            <Button variant="secondary">Quotation</Button>
-            <Button variant="secondary">Invoice</Button>
+            {/* --- FIX: ADDED HELPER BUTTONS --- */}
+            <QuotationLinkButton i_id={q.i_id} token={token} />
+            <InvoiceLinkButton i_id={q.i_id} token={token} />
           </div>
         </div>
       ))}
@@ -189,7 +295,6 @@ function UserReceiptsList({ receipts }: { receipts: Receipt[] }) {
         >
           <span>{q.receipt_number}</span>
           <div className="space-x-2">
-            {/* --- UPDATED BUTTON --- */}
             <Link href={`/receipts/number/${q.receipt_number}`}>
               <Button variant="secondary">Details</Button>
             </Link>
@@ -203,10 +308,11 @@ function UserReceiptsList({ receipts }: { receipts: Receipt[] }) {
 // --- Admins ---
 interface AdminListProps {
   receipts: Receipt[];
+  token: string | null; // Add token
   onUpdateStatus: (receiptId: number, status: "Approved" | "Rejected") => void;
 }
 
-function AdminReceiptsList({ receipts, onUpdateStatus }: AdminListProps) {
+function AdminReceiptsList({ receipts, token, onUpdateStatus }: AdminListProps) {
   const pendingReceipts = receipts.filter((q) => q.status === "Pending");
   const approvedReceipts = receipts.filter((q) => q.status === "Approved");
   const rejectedReceipts = receipts.filter((q) => q.status === "Rejected");
@@ -228,7 +334,6 @@ function AdminReceiptsList({ receipts, onUpdateStatus }: AdminListProps) {
         >
           <span>{q.receipt_number}</span>
           <div className="space-x-2">
-            {/* --- UPDATED BUTTON --- */}
             <Link href={`/receipts/number/${q.receipt_number}`}>
               <Button variant="secondary">Details</Button>
             </Link>
@@ -263,12 +368,12 @@ function AdminReceiptsList({ receipts, onUpdateStatus }: AdminListProps) {
         >
           <span>{q.receipt_number}</span>
           <div className="space-x-2">
-            {/* --- UPDATED BUTTONS --- */}
             <Link href={`/receipts/number/${q.receipt_number}`}>
               <Button variant="secondary">Details</Button>
             </Link>
-            <Button variant="secondary">Quotation</Button>
-            <Button variant="secondary">Invoice</Button>
+            {/* --- FIX: ADDED HELPER BUTTONS --- */}
+            <QuotationLinkButton i_id={q.i_id} token={token} />
+            <InvoiceLinkButton i_id={q.i_id} token={token} />
           </div>
         </div>
       ))}
@@ -288,7 +393,6 @@ function AdminReceiptsList({ receipts, onUpdateStatus }: AdminListProps) {
         >
           <span>{q.receipt_number}</span>
           <div className="space-x-2">
-            {/* --- UPDATED BUTTON --- */}
             <Link href={`/receipts/number/${q.receipt_number}`}>
               <Button variant="secondary">Details</Button>
             </Link>
