@@ -234,11 +234,12 @@ def quotation_edit(quotation_id: int, quotation_update: QuotationUpdate, db: DBD
     
     if quotation.status == 'Approved':
         raise HTTPException(
-            status_code=400, detail=f"Quotation cannot be Edit. Current status is '{quotation.status}'."
+            status_code=400, detail=f"Quotation cannot be edited. Current status is '{quotation.status}'."
             )
 
     quotation.customer_name = quotation_update.customer_name
     quotation.customer_address = quotation_update.customer_address
+    quotation.customer_email = quotation_update.customer_email
     
     subtotal = Decimal('0.00')
     if not quotation_update.itemlist:
