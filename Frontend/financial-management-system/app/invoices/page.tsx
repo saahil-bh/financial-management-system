@@ -20,6 +20,64 @@ interface Invoice {
   items: any[];
 }
 
+// --- HELPER COMPONENT (Quotation Button) ---
+// This component fetches the quotation number from the q_id
+// and then navigates to the correct details page.
+
+function QuotationLinkButton({ q_id, token }: { q_id: number; token: string | null }) {
+  const router = useRouter();
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const handleClick = async () => {
+    if (!token || !q_id) return;
+
+    setIsLoading(true);
+    setError(null);
+    try {
+      // We assume you have an endpoint to get a quotation by its ID
+      const response = await fetch(`${API_URL}/quotation/${q_id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) {
+        throw new Error("Quotation not found.");
+      }
+      
+      const data = await response.json();
+      
+      if (!data.quotation_number) {
+         throw new Error("Quotation number not found in response.");
+      }
+
+      // Now that we have the quotation_number, we can navigate
+      router.push(`/quotations/number/${data.quotation_number}`);
+
+    } catch (err: any) {
+      setError(err.message);
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (error) {
+     return <Button variant="secondary" disabled>Error</Button>
+  }
+
+  return (
+    <Button 
+      variant="secondary" // <-- STYLE FIX
+      onClick={handleClick}
+      disabled={isLoading}
+    >
+      {isLoading ? "..." : "Quotation"}
+    </Button>
+  );
+}
+// --- END OF HELPER COMPONENT ---
+
+
 export default function InvoicesPage() {
   const { user, token } = useAuth();
   const router = useRouter();
@@ -33,7 +91,6 @@ export default function InvoicesPage() {
     setIsLoading(true);
     setError(null);
     try {
-      // Use correct endpoints based on user role
       const endpoint =
         user.role === "Admin" ? "/invoice" : "/invoice/me";
       
@@ -68,7 +125,7 @@ export default function InvoicesPage() {
   }
   
   if (error) {
-      return (
+     return (
       <div className="flex flex-col justify-center items-center min-h-[50vh]">
         <p className="text-red-500">Error: {error}</p>
         <Button onClick={fetchInvoices} className="mt-4">Try Again</Button>
@@ -128,7 +185,7 @@ function UserInvoiceList({ invoices, token, onUpdate }: UserListProps) {
   const [isUpdating, setIsUpdating] = React.useState<number | null>(null);
   const [error, setError] = React.useState<string | null>(null);
 
-  // --- API Handlers ---
+  // API Handlers (Submit, Delete)
   const handleSubmit = async (invoiceId: number) => {
     if (!token) return;
     setIsUpdating(invoiceId);
@@ -202,14 +259,12 @@ function UserInvoiceList({ invoices, token, onUpdate }: UserListProps) {
           <span>{inv.customer_name}</span>
           <div className="space-x-2">
             
-            {/* --- 1. FIX: Use invoice_number for Details link --- */}
             <Link href={`/invoices/number/${inv.invoice_number}`}>
               <Button variant="secondary" disabled={isUpdating === inv.i_id}>
                 Details
               </Button>
             </Link>
             
-            {/* --- 2. FIX: Use invoice_number for Edit link --- */}
             <Link href={`/invoices/edit/${inv.invoice_number}`}>
               <Button variant="secondary" disabled={isUpdating === inv.i_id}>
                 Edit
@@ -251,7 +306,8 @@ function UserInvoiceList({ invoices, token, onUpdate }: UserListProps) {
           <span>{inv.customer_name}</span>
           <div className="space-x-2">
             
-            {/* --- 3. FIX: Use invoice_number for Details link --- */}
+            {inv.q_id && <QuotationLinkButton q_id={inv.q_id} token={token} />}
+
             <Link href={`/invoices/number/${inv.invoice_number}`}>
               <Button variant="secondary">Details</Button>
             </Link>
@@ -277,16 +333,18 @@ function UserInvoiceList({ invoices, token, onUpdate }: UserListProps) {
           <span>{inv.customer_name}</span>
           <div className="space-x-2">
 
-            {/* --- 4. FIX: Use invoice_number for Details link --- */}
             <Link href={`/invoices/number/${inv.invoice_number}`}>
               <Button variant="secondary">Details</Button>
             </Link>
 
-            {/* This link is to the Quotation by ID, which is correct based on your quotation.py */}
-            {inv.q_id && <Link href={`/quotations/${inv.q_id}`}>
-              <Button variant="secondary">Quotation</Button>
-            </Link>}
-            <Button variant="secondary">Receipt</Button>
+            {inv.q_id && <QuotationLinkButton q_id={inv.q_id} token={token} />}
+            
+            {/* --- THIS IS THE FIX --- */}
+            {/* We construct the receipt number based on the invoice number */}
+            <Link href={`/receipts/number/RC-${inv.invoice_number}`}>
+              <Button variant="secondary">Receipt</Button>
+            </Link>
+
           </div>
         </div>
       ))}
@@ -308,7 +366,6 @@ function UserInvoiceList({ invoices, token, onUpdate }: UserListProps) {
           <span>{inv.customer_name}</span>
             <div className="space-x-2">
 
-            {/* --- 5. FIX: Use invoice_number for Details link --- */}
             <Link href={`/invoices/number/${inv.invoice_number}`}>
               <Button variant="secondary">Details</Button>
             </Link>
@@ -334,7 +391,6 @@ function UserInvoiceList({ invoices, token, onUpdate }: UserListProps) {
           <span>{inv.customer_name}</span>
           <div className="space-x-2">
 
-            {/* --- 6. FIX: Use invoice_number for Details link --- */}
             <Link href={`/invoices/number/${inv.invoice_number}`}>
               <Button variant="secondary">Details</Button>
             </Link>
@@ -419,7 +475,8 @@ function AdminInvoiceList({ invoices, token, onUpdate }: AdminListProps) {
           <span>{inv.customer_name}</span>
           <div className="space-x-2">
 
-            {/* --- 7. FIX: Use invoice_number for Details link --- */}
+            {inv.q_id && <QuotationLinkButton q_id={inv.q_id} token={token} />}
+
             <Link href={`/invoices/number/${inv.invoice_number}`}>
               <Button variant="secondary" disabled={isUpdating === inv.i_id}>
                 Details
@@ -461,15 +518,17 @@ function AdminInvoiceList({ invoices, token, onUpdate }: AdminListProps) {
           <span>{inv.customer_name}</span>
           <div className="space-x-2">
 
-            {/* --- 8. FIX: Use invoice_number for Details link --- */}
             <Link href={`/invoices/number/${inv.invoice_number}`}>
               <Button variant="secondary">Details</Button>
             </Link>
             
-            {inv.q_id && <Link href={`/quotations/${inv.q_id}`}>
-              <Button variant="secondary">Quotation</Button>
-            </Link>}
-            <Button variant="secondary">Receipt</Button>
+            {inv.q_id && <QuotationLinkButton q_id={inv.q_id} token={token} />}
+            
+            {/* --- THIS IS THE FIX --- */}
+            {/* We construct the receipt number based on the invoice number */}
+            <Link href={`/receipts/number/RC-${inv.invoice_number}`}>
+              <Button variant="secondary">Receipt</Button>
+            </Link>
           </div>
         </div>
       ))}
@@ -491,7 +550,6 @@ function AdminInvoiceList({ invoices, token, onUpdate }: AdminListProps) {
           <span>{inv.customer_name}</span>
             <div className="space-x-2">
 
-            {/* --- 9. FIX: Use invoice_number for Details link --- */}
             <Link href={`/invoices/number/${inv.invoice_number}`}>
               <Button variant="secondary">Details</Button>
             </Link>
@@ -517,7 +575,6 @@ function AdminInvoiceList({ invoices, token, onUpdate }: AdminListProps) {
           <span>{inv.customer_name}</span>
           <div className="space-x-2">
 
-            {/* --- 10. FIX: Use invoice_number for Details link --- */}
             <Link href={`/invoices/number/${inv.invoice_number}`}>
               <Button variant="secondary">Details</Button>
             </Link>
