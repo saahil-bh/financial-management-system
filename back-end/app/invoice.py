@@ -81,6 +81,31 @@ class InvoiceResponse(InvoiceBase):
 
 vat = Decimal('0.07')
 
+def invoice2receipt(invoice: db_model.Invoice, db: Session):
+
+    check_receipt = db.query(db_model.Receipt).filter(db_model.Receipt.i_id == invoice.i_id).first()
+    
+    if check_receipt:
+        print(f"Receipt for Invoice num {invoice.invoice_number} already exists. No Worry")
+        return check_receipt
+
+    db_receipt = db_model.Receipt(
+      i_id = invoice.q_id, 
+      u_id = invoice.u_id,
+      invoice_number = f"RC-{invoice.invoice_number}",
+      customer_name = invoice.customer_name,
+      customer_address = invoice.customer_address,
+      payment_date = datetime.now(timezone.utc),
+      status = 'Pending',
+      amount = invoice.total,
+      )
+    
+    db.add(db_receipt)
+    db.flush()
+            
+    print(f"Successfully created Receipt Number:{db_receipt.receipt_number}!!!")
+    return db_receipt
+
 @router.post("/", response_model=InvoiceResponse, status_code=status.HTTP_201_CREATED)
 def create_invoice(invoice_data: InvoiceCreate, db: DBDependency, current_user: Annotated[db_model.User, Depends(check_user_role('User'))]): 
   
