@@ -83,6 +83,7 @@ class Receipt(Base):
     __tablename__ = "Receipts"
     r_id = Column(Integer, primary_key=True, index=True, name="r_id")
     i_id = Column(Integer, ForeignKey("Invoices.i_id", ondelete="SET NULL"), nullable=True)
+    receipt_number = Column(String(50), nullable=False, default="-YYYYMMDD-000")
     payment_date = Column(Date, nullable=False)
     amount = Column(Numeric(12, 2), nullable=False)
     status = Column(String(20), nullable=False, default='Pending')

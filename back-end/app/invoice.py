@@ -92,7 +92,7 @@ def invoice2receipt(invoice: db_model.Invoice, db: Session):
     db_receipt = db_model.Receipt(
       i_id = invoice.q_id, 
       u_id = invoice.u_id,
-      invoice_number = f"RC-{invoice.invoice_number}",
+      receipt_number = f"RC-{invoice.invoice_number}",
       customer_name = invoice.customer_name,
       customer_address = invoice.customer_address,
       payment_date = datetime.now(timezone.utc),
