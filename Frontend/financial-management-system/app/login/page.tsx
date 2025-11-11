@@ -10,7 +10,6 @@ import * as React from "react";
 import { useAuth } from "@/context/AuthContext";
 
 export default function LoginPage() {
-  // --- CHANGE 1: Rename 'username' state to 'email' for clarity ---
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
 
@@ -18,13 +17,12 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // --- CHANGE 2: Pass 'email' to the login function ---
     await login(email, password);
   };
 
   return (
     <main className="flex min-h-screen flex-col items-center bg-black p-8">
-      {/* ... (Image component) ... */}
+      {/* Company Logo */}
       <Image
         src={MyFinance}
         alt="MyFinance Logo"
@@ -37,17 +35,16 @@ export default function LoginPage() {
         onSubmit={handleLogin}
         className="w-full max-w-xs rounded-lg border border-white p-6 space-y-4"
       >
-        {/* --- CHANGE 3: Update the input field for Email --- */}
         <div>
           <Label htmlFor="email" className="sr-only">
             Email
           </Label>
           <Input
             id="email"
-            type="email" // <-- Use 'email' type
-            placeholder="Email" // <-- Change placeholder
+            type="email"
+            placeholder="Email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)} // <-- Update state
+            onChange={(e) => setEmail(e.target.value)}
             required
             className="bg-white text-black rounded-none"
           />

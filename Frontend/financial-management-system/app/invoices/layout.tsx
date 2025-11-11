@@ -5,14 +5,13 @@ import { Button } from "@/components/ui/button";
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useAuth } from "@/context/AuthContext"; // Import the real useAuth hook
+import { useAuth } from "@/context/AuthContext";
 
-// Define links with roles
 const navLinks = [
   { label: "Quotations", href: "/quotations", roles: ["Admin", "User"] },
   { label: "Invoices", href: "/invoices", roles: ["Admin", "User"] },
   { label: "Receipts", href: "/receipts", roles: ["Admin", "User"] },
-  { label: "Logs", href: "/logs", roles: ["Admin"] }, // Only Admin can see this
+  { label: "Logs", href: "/logs", roles: ["Admin"] },
 ];
 
 export default function MainLayout({
@@ -21,15 +20,13 @@ export default function MainLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  // Get the real user and logout function from the AuthContext
   const { user, logout } = useAuth();
 
-  // Fix the logout handler to use the context's function
   const handleLogout = () => {
     logout();
   };
 
-  // --- Add a loading state ---
+  // Loading
   if (!user) {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
@@ -38,7 +35,6 @@ export default function MainLayout({
     );
   }
 
-  // Filter links based on the REAL user's role
   const accessibleLinks = navLinks.filter((link) =>
     link.roles.includes(user.role)
   );
@@ -56,7 +52,6 @@ export default function MainLayout({
         />
 
         <nav className="flex gap-4">
-          {/* Map over the filtered links */}
           {accessibleLinks.map((link) => {
             const isActive = pathname.startsWith(link.href);
 
@@ -68,7 +63,7 @@ export default function MainLayout({
                   px-3 py-2 rounded-md text-sm font-medium transition-colors
                   ${
                     isActive
-                      ? "text-primary" // Green
+                      ? "text-primary"
                       : "text-white hover:bg-gray-700"
                   }
                 `}
@@ -88,9 +83,7 @@ export default function MainLayout({
         </Button>
       </header>
 
-      {/* PAGE CONTENT */}
       <main className="p-8">
-        {/* The temporary UI toggle has been removed */}
         {children}
       </main>
     </div>

@@ -1,9 +1,6 @@
 "use client";
-
 import React, { useEffect, useState, useCallback } from "react";
-// --- 1. IMPORT FIX ---
-import { useParams, useRouter } from "next/navigation"; // Import useRouter from navigation
-import { PDFViewer } from "@react-pdf/renderer";
+import { useParams, useRouter } from "next/navigation";
 import { InvoiceDocument } from "@/components/pdf/InvoiceDocument";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -12,27 +9,23 @@ import dynamic from "next/dynamic";
 
 const API_URL = "http://localhost:8000";
 
-// --- Helper Interfaces ---
-
 interface InvoiceLineItem {
   item_id: number;
   description: string;
   quantity: number;
-  unit_price: number; // This was number, but API sends string. See mapping.
+  unit_price: number;
 }
 
-// --- 2. UPDATE FetchedInvoiceData ---
 interface FetchedInvoiceData {
   invoice_number: string;
   payment_term: string;
   customer_name: string;
   customer_address: string;
   items: InvoiceLineItem[];
-  created_at: string; // Get the creation date
-  // --- NEW FIELDS ---
+  created_at: string;
   preparer_name: string | null;
   approver_name: string | null;
-  approved_date: string | null; // Will be an ISO date string
+  approved_date: string | null;
 }
 
 interface FetchedCompanyInfo {
@@ -49,14 +42,13 @@ interface FetchedBankInfo {
   swift_code: string;
 }
 
-// --- 3. UPDATE PdfData (for props) ---
 interface PdfData {
   id: string;
   paymentTerms: string;
   customerInfo: {
     name: string;
     address: string;
-    email: string; // Add email field
+    email: string;
   };
   date: string;
   lineItems: {
@@ -66,7 +58,6 @@ interface PdfData {
     unitPrice: number;
   }[];
   vatRate: number;
-  // --- NEW FIELDS ---
   preparer_name: string;
   approver_name: string;
   approved_date: string;
@@ -95,7 +86,7 @@ const DynamicPDFViewer = dynamic(
 export default function InvoicePdfPage() {
   const params = useParams();
   const { token } = useAuth();
-  const router = useRouter(); // --- 1. CALL THE HOOK ---
+  const router = useRouter();
   const invoice_number = params.invoice_number as string;
 
   const [isClient, setIsClient] = useState(false);
@@ -111,7 +102,6 @@ export default function InvoicePdfPage() {
     setIsClient(true);
   }, []);
 
-  // --- 5. UPDATE DATA FETCH & MAPPING ---
   const fetchData = useCallback(async () => {
     if (!token || !invoice_number) return;
 
@@ -119,7 +109,6 @@ export default function InvoicePdfPage() {
     setError(null);
 
     try {
-      // Fetch all three data sources concurrently
       const [invoiceRes, companyRes, bankRes] = await Promise.all([
         fetch(`${API_URL}/invoice/number/${invoice_number}`, {
           headers: { Authorization: `Bearer ${token}` },
@@ -143,9 +132,6 @@ export default function InvoicePdfPage() {
       const companyData: FetchedCompanyInfo = await companyRes.json();
       const bankData: FetchedBankInfo = await bankRes.json();
 
-      // --- 5a. UPDATE: Map all fetched data ---
-      
-      // Calculate dates
       const createdDate = new Date(invoiceData.created_at);
       const approvedDate = invoiceData.approved_date 
           ? new Date(invoiceData.approved_date) 
@@ -157,9 +143,8 @@ export default function InvoicePdfPage() {
         customerInfo: {
           name: invoiceData.customer_name,
           address: invoiceData.customer_address,
-          email: "N/A", // Your API doesn't send this, but PDF needs it
+          email: "N/A",
         },
-        // --- 5b. BUG FIX: Use invoice date, not today's date ---
         date: createdDate.toLocaleDateString('en-GB', {
           year: 'numeric',
           month: '2-digit',
@@ -171,8 +156,7 @@ export default function InvoicePdfPage() {
           qty: item.quantity,
           unitPrice: parseFloat(item.unit_price as any),
         })),
-        vatRate: 0.07, // Using hardcoded VAT rate
-        // --- 5c. NEW FIELDS ---
+        vatRate: 0.07,
         preparer_name: invoiceData.preparer_name || "N/A",
         approver_name: invoiceData.approver_name || "Not Approved Yet",
         approved_date: approvedDate ? approvedDate.toLocaleDateString("en-GB") : "N/A",
@@ -182,7 +166,6 @@ export default function InvoicePdfPage() {
         name: companyData.company_name,
         address: companyData.company_address,
         email: companyData.email,
-        // --- 4. LOGO FIX: Use placeholder as requested ---
         logoUrl: "https://placehold.co/150x50/10B981/FFF?text=MyFinan$e",
         taxID: companyData.tax_id,
       };
@@ -196,7 +179,7 @@ export default function InvoicePdfPage() {
 
       setPdfData(formattedPdfData);
       setCompanyInfo(formattedCompanyInfo);
-      setBankInfo(formattedBankInfo); // Set the bank info state
+      setBankInfo(formattedBankInfo);
 
     } catch (err: any) {
       setError(err.message);
@@ -205,7 +188,6 @@ export default function InvoicePdfPage() {
     }
   }, [invoice_number, token]);
 
-  // Trigger the data fetch
   useEffect(() => {
     fetchData();
   }, [fetchData]);

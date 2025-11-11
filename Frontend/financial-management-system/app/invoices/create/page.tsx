@@ -78,7 +78,6 @@ export default function CreateInvoicePage() {
     setLineItems((prevItems) => prevItems.filter((item) => item.id !== id));
   };
 
-  // --- Calculations (Unchanged) ---
   const subtotal = React.useMemo(() => {
     return lineItems.reduce((acc, item) => acc + item.qty * item.unitPrice, 0);
   }, [lineItems]);
@@ -86,7 +85,6 @@ export default function CreateInvoicePage() {
   const vatAmount = subtotal * VAT_RATE;
   const grandTotal = subtotal + vatAmount;
 
-  // --- 6. Generic API handler ---
   const handleCreateInvoice = async (status: "Draft" | "Submitted") => {
     setIsLoading(true);
     setError(null);
@@ -97,22 +95,20 @@ export default function CreateInvoicePage() {
       return;
     }
 
-    // Format line items to match backend (quantity, unit_price)
     const formattedItems = lineItems.map(({ description, qty, unitPrice }) => ({
       description: description,
       quantity: qty,
       unit_price: unitPrice,
     }));
 
-    // Build the payload to match app/invoice.py's InvoiceCreate model
     const payload = {
       invoice_number: invoiceNumber,
       customer_name: customerName,
       customer_address: customerAddress,
       payment_term: paymentTerm,
       itemlist: formattedItems,
-      status: status, // Send the correct status
-      q_id: null, // This is a new invoice, not from a quotation
+      status: status,
+      q_id: null,
     };
 
     try {
@@ -131,7 +127,7 @@ export default function CreateInvoicePage() {
       }
 
       alert(`Invoice saved as ${status}!`);
-      router.push("/invoices"); // Redirect to invoices list
+      router.push("/invoices");
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -139,7 +135,6 @@ export default function CreateInvoicePage() {
     }
   };
 
-  // --- 7. Hook up handlers to buttons ---
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     handleCreateInvoice("Submitted");
@@ -150,14 +145,13 @@ export default function CreateInvoicePage() {
   };
 
   return (
-    // 8. Hook up form's onSubmit
     <form
       onSubmit={handleSubmit}
       className="max-w-4xl mx-auto p-6 space-y-8 border-2 border-primary rounded-2xl shadow-lg shadow-primary/20"
     >
       <h2 className="text-3xl font-bold text-center">Create an Invoice:</h2>
 
-      {/* --- 9. Connect Invoice Information inputs to state --- */}
+      {/* --- Connect Invoice Information inputs to state --- */}
       <section className="space-y-4">
         <h3 className="text-xl font-semibold">Invoice Information:</h3>
         <div className="grid grid-cols-2 gap-4">
@@ -192,7 +186,7 @@ export default function CreateInvoicePage() {
         </div>
       </section>
 
-      {/* --- Invoice Line Items (Unchanged) --- */}
+      {/* --- Invoice Line Items --- */}
       <section className="space-y-4">
         <div className="flex justify-between items-center">
           <h3 className="text-xl font-semibold">Invoice:</h3>
@@ -256,7 +250,7 @@ export default function CreateInvoicePage() {
         </div>
       </section>
 
-      {/* --- Totals Section (Unchanged) --- */}
+      {/* --- Totals Section --- */}
       <section className="flex justify-end">
         <div className="w-full max-w-sm space-y-2">
           <div className="flex justify-between">
@@ -276,24 +270,24 @@ export default function CreateInvoicePage() {
         </div>
       </section>
 
-      {/* --- 10. Show error message --- */}
+      {/* --- Show error message --- */}
       {error && (
         <p className="text-red-500 text-sm text-center font-bold">{error}</p>
       )}
 
-      {/* --- 11. Hook up Action Buttons --- */}
+      {/* --- Hook up Action Buttons --- */}
       <div className="flex justify-end gap-4">
         <Button
-          type="button" // <-- Must be type="button"
+          type="button"
           variant="secondary"
           className="font-bold"
-          onClick={handleSaveDraft} // <-- Hook up onClick
+          onClick={handleSaveDraft}
           disabled={isLoading}
         >
           Save (Draft)
         </Button>
         <Button
-          type="submit" // <-- This triggers onSubmit
+          type="submit"
           variant="default"
           className="font-bold"
           disabled={isLoading}

@@ -2,28 +2,25 @@
 import { Button } from "@/components/ui/button";
 import * as React from "react";
 import { Lock } from "lucide-react";
-import { useAuth } from "../../context/AuthContext"; // Import the Auth hook
-import api from "../../lib/api"; // Import the API client
+import { useAuth } from "../../context/AuthContext";
+import api from "../../lib/api";
 
-// Define the type for a Log
 interface Log {
   l_id: number;
   actor_id: number;
   action: string;
-  document_id: number; // Changed from string to number
+  document_id: number;
   timestamp: string;
 }
 
 export default function LogsPage() {
-  const { user } = useAuth(); // Get the real user
+  const { user } = useAuth();
   const [logs, setLogs] = React.useState<Log[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
 
-  // Check the user's role
   const isAdmin = user?.role === "Admin";
 
   React.useEffect(() => {
-    // Only fetch logs if the user is an Admin
     if (user && isAdmin) {
       const fetchLogs = async () => {
         setIsLoading(true);
@@ -39,12 +36,10 @@ export default function LogsPage() {
 
       fetchLogs();
     } else if (user) {
-      // If the user is loaded but is not an Admin
       setIsLoading(false);
     }
-  }, [user, isAdmin]); // Re-run if the user or isAdmin status changes
+  }, [user, isAdmin]);
 
-  // Show a loading state while we wait for the user object
   if (!user) {
     return (
       <div className="flex justify-center items-center min-h-[50vh]">
@@ -53,7 +48,6 @@ export default function LogsPage() {
     );
   }
 
-  // Show a loading state while fetching logs (only for Admin)
   if (isLoading && isAdmin) {
       return (
       <div className="flex justify-center items-center min-h-[50vh]">
@@ -62,13 +56,8 @@ export default function LogsPage() {
     );
   }
 
-  // Once loading is done, show LogsList for Admin or AccessDenied for User
   return (
     <div className="space-y-6">
-      {/* <span className="w-1/4">Action</span>
-          <span className="w-1/4">Document ID</span>
-        </div> */}
-  
       <h3 className="text-3xl font-bold">System Activity Logs</h3>
 
       {isAdmin ? (
@@ -80,17 +69,16 @@ export default function LogsPage() {
   );
 }
 
-// --- ADMIN'S LOG LIST COMPONENT (Accepts logs as a prop) ---
 function LogsList({ logs }: { logs: Log[] }) {
   const getActionColor = (action: string) => {
     switch (action.toLowerCase()) {
       case "approved":
-        return "text-primary"; // Green
+        return "text-primary";
       case "rejected":
-        return "text-destructive"; // Red
+        return "text-destructive";
       case "submitted":
       case "created":
-        return "text-warning"; // Yellow
+        return "text-warning";
       default:
         return "text-white";
     }
@@ -98,15 +86,14 @@ function LogsList({ logs }: { logs: Log[] }) {
 
   return (
     <div className="space-y-3">
-      {/* HEADER ROW */}
+      
       <div className="flex p-3 rounded-lg bg-gray-700 font-bold">
         <span className="w-1/4">Timestamp</span>
         <span className="w-1/4">Actor ID</span>
         <span className="w-1/4">Action</span>
-        <span className="w-1/4">Document ID</span>
+        <span className="w-1/4 pl-20">Document ID</span>
       </div>
 
-      {/* LOG ROWS (from real data) */}
       {logs.map((log) => (
         <div
           key={log.l_id}
@@ -117,7 +104,7 @@ function LogsList({ logs }: { logs: Log[] }) {
           <span className={`w-1/4 font-bold ${getActionColor(log.action)}`}>
             {log.action}
           </span>
-          <span className="w-1/4">{log.document_id}</span>
+          <span className="w-1/4 pl-30">{log.document_id}</span>
         </div>
       ))}
     </div>

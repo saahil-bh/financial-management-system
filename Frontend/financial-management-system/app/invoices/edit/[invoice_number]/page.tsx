@@ -7,18 +7,15 @@ import { Plus, Trash2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter, useParams } from "next/navigation";
 
-// Define the shape of a line item
 type LineItem = {
-  id: number | string; // Can be DB ID (number) or temp ID (string)
+  id: number | string;
   description: string;
-  quantity: number; // Match backend model
-  unit_price: number; // Match backend model
+  quantity: number;
+  unit_price: number;
 };
 
-// VAT Rate
-const VAT_RATE = 0.07; // 7%
+const VAT_RATE = 0.07;
 
-// Your backend API URL
 const API_URL = "http://localhost:8000";
 
 export default function EditInvoicePage() {
@@ -26,12 +23,12 @@ export default function EditInvoicePage() {
   const params = useParams();
   const { token } = useAuth();
 
-  // --- 1. FIX: Get 'invoice_number' from URL params ---
+
   const invoice_number = params.invoice_number as string;
 
-  // --- State for all form fields ---
+
   const [lineItems, setLineItems] = React.useState<LineItem[]>([]);
-  const [invoiceNumberDisplay, setInvoiceNumberDisplay] = React.useState(""); // For display only
+  const [invoiceNumberDisplay, setInvoiceNumberDisplay] = React.useState("");
   const [customerName, setCustomerName] = React.useState("");
   const [customerAddress, setCustomerAddress] = React.useState("");
   const [paymentTerm, setPaymentTerm] = React.useState("");
@@ -39,7 +36,6 @@ export default function EditInvoicePage() {
   const [isFetching, setIsFetching] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
-  // --- 2. FIX: Fetch existing invoice data using invoice_number ---
   React.useEffect(() => {
     if (!invoice_number || !token) return;
 
@@ -47,7 +43,6 @@ export default function EditInvoicePage() {
       setIsFetching(true);
       setError(null);
       try {
-        // Fetch using the new endpoint
         const response = await fetch(`${API_URL}/invoice/number/${invoice_number}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -58,18 +53,16 @@ export default function EditInvoicePage() {
         }
         const data = await response.json();
 
-        // --- Pre-populate the form with fetched data ---
-        setInvoiceNumberDisplay(data.invoice_number); // Set the display number
+        setInvoiceNumberDisplay(data.invoice_number);
         setCustomerName(data.customer_name);
         setCustomerAddress(data.customer_address);
         setPaymentTerm(data.payment_term);
         
-        // Format the items from the DB to match our local state
         const formattedItems = data.items.map((item: any) => ({
-          id: item.item_id, // Use the real database ID
+          id: item.item_id,
           description: item.description,
           quantity: item.quantity,
-          unit_price: parseFloat(item.unit_price), // Ensure it's a number
+          unit_price: parseFloat(item.unit_price),
         }));
         setLineItems(formattedItems);
 
@@ -81,9 +74,8 @@ export default function EditInvoicePage() {
     };
 
     fetchInvoice();
-  }, [invoice_number, token]); // Re-run if invoice_number or token changes
-
-  // --- Line Item Handlers ---
+  }, [invoice_number, token]);
+  
   const handleLineItemChange = (
     id: number | string,
     field: keyof LineItem,
@@ -116,7 +108,6 @@ export default function EditInvoicePage() {
     setLineItems((prevItems) => prevItems.filter((item) => item.id !== id));
   };
 
-  // --- Calculations ---
   const subtotal = React.useMemo(() => {
     return lineItems.reduce((acc, item) => acc + item.quantity * item.unit_price, 0);
   }, [lineItems]);
@@ -124,7 +115,6 @@ export default function EditInvoicePage() {
   const vatAmount = subtotal * VAT_RATE;
   const grandTotal = subtotal + vatAmount;
 
-  // --- 3. FIX: Handle the UPDATE (PUT) request using invoice_number ---
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -136,14 +126,12 @@ export default function EditInvoicePage() {
       return;
     }
 
-    // Format items for the backend (match InvoiceUpdate model)
     const formattedItems = lineItems.map(({ description, quantity, unit_price }) => ({
       description,
       quantity,
       unit_price,
     }));
 
-    // This payload matches your backend's InvoiceUpdate model
     const payload = {
       customer_name: customerName,
       customer_address: customerAddress,
@@ -152,7 +140,6 @@ export default function EditInvoicePage() {
     };
 
     try {
-      // Send PUT request to the new endpoint
       const response = await fetch(`${API_URL}/invoice/number/${invoice_number}`, {
         method: "PUT",
         headers: {
@@ -168,7 +155,7 @@ export default function EditInvoicePage() {
       }
 
       alert("Invoice updated successfully!");
-      router.push("/invoices"); // Go back to the list
+      router.push("/invoices");
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -176,7 +163,6 @@ export default function EditInvoicePage() {
     }
   };
 
-  // --- Loading/Error states for the page ---
   if (isFetching) {
     return (
       <div className="flex justify-center items-center min-h-[50vh]">
@@ -194,7 +180,6 @@ export default function EditInvoicePage() {
     );
   }
 
-  // --- The Form ---
   return (
     <form
       onSubmit={handleUpdate}
@@ -212,7 +197,7 @@ export default function EditInvoicePage() {
             placeholder="Invoice Number"
             className="bg-gray-200 text-black border-primary border-2 rounded-none"
             value={invoiceNumberDisplay}
-            disabled // The Invoice Number (INV-2025...) cannot be edited
+            disabled
           />
           <Input
             placeholder="Customer Name"

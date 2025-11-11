@@ -20,7 +20,6 @@ interface Invoice {
   items: any[];
 }
 
-// --- HELPER COMPONENT (Quotation Button) ---
 function QuotationLinkButton({ q_id, token }: { q_id: number; token: string | null }) {
   const router = useRouter();
   const [isLoading, setIsLoading] = React.useState(false);
@@ -62,7 +61,7 @@ function QuotationLinkButton({ q_id, token }: { q_id: number; token: string | nu
 
   return (
     <Button 
-      variant="secondary" // <-- STYLE FIX
+      variant="secondary"
       onClick={handleClick}
       disabled={isLoading}
     >
@@ -70,7 +69,6 @@ function QuotationLinkButton({ q_id, token }: { q_id: number; token: string | nu
     </Button>
   );
 }
-// --- END OF HELPER COMPONENT ---
 
 
 export default function InvoicesPage() {
@@ -169,7 +167,6 @@ export default function InvoicesPage() {
   );
 }
 
-// --- UPDATED UserInvoiceList ---
 interface UserListProps {
   invoices: Invoice[];
   token: string | null;
@@ -180,7 +177,6 @@ function UserInvoiceList({ invoices, token, onUpdate }: UserListProps) {
   const [isUpdating, setIsUpdating] = React.useState<number | null>(null);
   const [error, setError] = React.useState<string | null>(null);
 
-  // API Handlers (Submit, Delete)
   const handleSubmit = async (invoiceId: number) => {
     if (!token) return;
     setIsUpdating(invoiceId);
@@ -233,7 +229,6 @@ function UserInvoiceList({ invoices, token, onUpdate }: UserListProps) {
   const pendingInvoices = invoices.filter((inv) => inv.status === "Submitted");
   const approvedInvoices = invoices.filter((inv) => inv.status === "Approved");
   const rejectedInvoices = invoices.filter((inv) => inv.status === "Rejected");
-  const paidInvoices = invoices.filter((inv) => inv.status === "Paid");
 
   return (
     <>
@@ -248,11 +243,11 @@ function UserInvoiceList({ invoices, token, onUpdate }: UserListProps) {
       {draftInvoices.map((inv) => (
         <div
           key={inv.i_id}
-          className="p-3 rounded-lg flex items-center justify-between border border-gray-700"
+          className="p-3 rounded-lg flex items-center border border-gray-700"
         >
-          <span>{inv.invoice_number}</span>
-          <span>{inv.customer_name}</span>
-          <div className="space-x-2">
+          <span className="w-1/4">{inv.invoice_number}</span>
+          <span className="w-1/4 pl-70">{inv.customer_name}</span>
+          <div className="space-x-2 ml-auto">
             
             <Link href={`/invoices/number/${inv.invoice_number}`}>
               <Button variant="secondary" disabled={isUpdating === inv.i_id}>
@@ -284,7 +279,7 @@ function UserInvoiceList({ invoices, token, onUpdate }: UserListProps) {
         </div>
       ))}
 
-      {/* Submitted (Pending) */}
+      {/* Submitted */}
       {pendingInvoices.length > 0 && (
         <div className="bg-chart-4 p-3">
           <span className="font-bold text-lg text-warning-foreground">
@@ -297,9 +292,9 @@ function UserInvoiceList({ invoices, token, onUpdate }: UserListProps) {
           key={inv.i_id}
           className="p-3 rounded-lg flex items-center justify-between border border-gray-700"
         >
-          <span>{inv.invoice_number}</span>
-          <span>{inv.customer_name}</span>
-          <div className="space-x-2">
+          <span className="w-1/4">{inv.invoice_number}</span>
+          <span className="w-1/4 pl-70">{inv.customer_name}</span>
+          <div className="space-x-2 ml-auto">
             
             {inv.q_id && <QuotationLinkButton q_id={inv.q_id} token={token} />}
 
@@ -322,11 +317,11 @@ function UserInvoiceList({ invoices, token, onUpdate }: UserListProps) {
       {approvedInvoices.map((inv) => (
         <div
           key={inv.i_id}
-          className="p-3 rounded-lg flex items-center justify-between border border-gray-700"
+          className="p-3 rounded-lg flex items-center border border-gray-700"
         >
-          <span>{inv.invoice_number}</span>
-          <span>{inv.customer_name}</span>
-          <div className="space-x-2">
+          <span className="w-1/4">{inv.invoice_number}</span>
+          <span className="w-1/4 pl-70">{inv.customer_name}</span>
+          <div className="space-x-2 ml-auto">
 
             <Link href={`/invoices/number/${inv.invoice_number}`}>
               <Button variant="secondary">Details</Button>
@@ -334,35 +329,8 @@ function UserInvoiceList({ invoices, token, onUpdate }: UserListProps) {
 
             {inv.q_id && <QuotationLinkButton q_id={inv.q_id} token={token} />}
             
-            {/* --- THIS IS THE FIX --- */}
-            {/* We construct the receipt number by stripping "INV-" from the invoice number */}
             <Link href={`/receipts/number/RC-${inv.invoice_number.replace("INV-", "")}`}>
               <Button variant="secondary">Receipt</Button>
-            </Link>
-
-          </div>
-        </div>
-      ))}
-      
-      {/* Paid */}
-      {paidInvoices.length > 0 && (
-        <div className="bg-green-600 p-3">
-          <span className="font-bold text-lg text-primary-foreground">
-            Paid
-          </span>
-        </div>
-      )}
-      {paidInvoices.map((inv) => (
-          <div
-          key={inv.i_id}
-          className="p-3 rounded-lg flex items-center justify-between border border-gray-700"
-        >
-          <span>{inv.invoice_number}</span>
-          <span>{inv.customer_name}</span>
-            <div className="space-x-2">
-
-            <Link href={`/invoices/number/${inv.invoice_number}`}>
-              <Button variant="secondary">Details</Button>
             </Link>
 
           </div>
@@ -380,11 +348,11 @@ function UserInvoiceList({ invoices, token, onUpdate }: UserListProps) {
       {rejectedInvoices.map((inv) => (
         <div
           key={inv.i_id}
-          className="p-3 rounded-lg flex items-center justify-between border border-gray-700"
+          className="p-3 rounded-lg flex items-center border border-gray-700"
         >
-          <span>{inv.invoice_number}</span>
-          <span>{inv.customer_name}</span>
-          <div className="space-x-2">
+          <span className="w-1/4">{inv.invoice_number}</span>
+          <span className="w-1/4 pl-70">{inv.customer_name}</span>
+          <div className="space-x-2 ml-auto">
 
             <Link href={`/invoices/number/${inv.invoice_number}`}>
               <Button variant="secondary">Details</Button>
@@ -397,7 +365,6 @@ function UserInvoiceList({ invoices, token, onUpdate }: UserListProps) {
   );
 }
 
-// --- UPDATED AdminInvoiceList ---
 interface AdminListProps {
   invoices: Invoice[];
   token: string | null;
@@ -446,14 +413,13 @@ function AdminInvoiceList({ invoices, token, onUpdate }: AdminListProps) {
   const pendingInvoices = invoices.filter((inv) => inv.status === "Submitted");
   const approvedInvoices = invoices.filter((inv) => inv.status === "Approved");
   const rejectedInvoices = invoices.filter((inv) => inv.status === "Rejected");
-  const paidInvoices = invoices.filter((inv) => inv.status === "Paid");
 
 
   return (
     <>
       {error && <p className="text-red-500 text-center">{error}</p>}
       
-      {/* Submitted (Pending) */}
+      {/* Submitted */}
       {pendingInvoices.length > 0 && (
         <div className="bg-chart-4 p-3">
           <span className="font-bold text-lg text-warning-foreground">
@@ -464,11 +430,11 @@ function AdminInvoiceList({ invoices, token, onUpdate }: AdminListProps) {
       {pendingInvoices.map((inv) => (
         <div
           key={inv.i_id}
-          className="p-3 rounded-lg flex items-center justify-between border border-gray-700"
+          className="p-3 rounded-lg flex items-center border border-gray-700"
         >
-          <span>{inv.invoice_number}</span>
-          <span>{inv.customer_name}</span>
-          <div className="space-x-2">
+          <span className="w-1/4">{inv.invoice_number}</span>
+          <span className="w-1/4 pl-70">{inv.customer_name}</span>
+          <div className="space-x-2 ml-auto">
 
             {inv.q_id && <QuotationLinkButton q_id={inv.q_id} token={token} />}
 
@@ -507,48 +473,21 @@ function AdminInvoiceList({ invoices, token, onUpdate }: AdminListProps) {
       {approvedInvoices.map((inv) => (
         <div
           key={inv.i_id}
-          className="p-3 rounded-lg flex items-center justify-between border border-gray-700"
+          className="p-3 rounded-lg flex items-center border border-gray-700"
         >
-          <span>{inv.invoice_number}</span>
-          <span>{inv.customer_name}</span>
-          <div className="space-x-2">
+          <span className="w-1/4">{inv.invoice_number}</span>
+          <span className="w-1/2 pl-70">{inv.customer_name}</span>
+          <div className="space-x-2 ml-auto">
 
             <Link href={`/invoices/number/${inv.invoice_number}`}>
               <Button variant="secondary">Details</Button>
             </Link>
             
             {inv.q_id && <QuotationLinkButton q_id={inv.q_id} token={token} />}
-            
-            {/* --- THIS IS THE FIX --- */}
-            {/* We construct the receipt number by stripping "INV-" from the invoice number */}
+                        
             <Link href={`/receipts/number/RC-${inv.invoice_number.replace("INV-", "")}`}>
               <Button variant="secondary">Receipt</Button>
             </Link>
-          </div>
-        </div>
-      ))}
-      
-      {/* Paid */}
-      {paidInvoices.length > 0 && (
-        <div className="bg-green-600 p-3">
-          <span className="font-bold text-lg text-primary-foreground">
-            Paid
-          </span>
-        </div>
-      )}
-      {paidInvoices.map((inv) => (
-          <div
-          key={inv.i_id}
-          className="p-3 rounded-lg flex items-center justify-between border border-gray-700"
-        >
-          <span>{inv.invoice_number}</span>
-          <span>{inv.customer_name}</span>
-            <div className="space-x-2">
-
-            <Link href={`/invoices/number/${inv.invoice_number}`}>
-              <Button variant="secondary">Details</Button>
-            </Link>
-
           </div>
         </div>
       ))}
@@ -564,11 +503,11 @@ function AdminInvoiceList({ invoices, token, onUpdate }: AdminListProps) {
       {rejectedInvoices.map((inv) => (
         <div
           key={inv.i_id}
-          className="p-3 rounded-lg flex items-center justify-between border border-gray-700"
+          className="p-3 rounded-lg flex items-center border border-gray-700"
         >
-          <span>{inv.invoice_number}</span>
-          <span>{inv.customer_name}</span>
-          <div className="space-x-2">
+          <span className="w-1/4">{inv.invoice_number}</span>
+          <span className="w-1/4 pl-70">{inv.customer_name}</span>
+          <div className="space-x-2 ml-auto">
 
             <Link href={`/invoices/number/${inv.invoice_number}`}>
               <Button variant="secondary">Details</Button>
