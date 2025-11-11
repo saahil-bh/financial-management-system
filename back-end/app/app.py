@@ -22,7 +22,7 @@ app = FastAPI()
 
 origins = [
     "http://localhost:3000",
-    "http://localhost",
+    "https://financial-management-system-frontend-ct16.onrender.com",
 ]
 
 app.add_middleware(
