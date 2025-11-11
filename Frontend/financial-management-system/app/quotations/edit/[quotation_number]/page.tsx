@@ -15,7 +15,7 @@ type LineItem = {
 
 const VAT_RATE = 0.07;
 
-const API_URL = "http://localhost:8000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function EditQuotationPage() {
   const router = useRouter();
