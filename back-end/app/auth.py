@@ -78,14 +78,11 @@ async def create_user(db: db_dependency, user_request:CreateUser):
 @router.post("/login", response_model=Token)
 async def login_for_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], db: db_dependency):
     user = authenticate_user(form_data.username, form_data.password, db)
-    print(form_data.username)
-    print(form_data.password)
 
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=f'Could not validate user.')
     
     token = create_access_token(user.email, user.u_id, timedelta(minutes=20))
-    print(token)
 
     return{'access_token': token, 'token_type': 'bearer'}
     
