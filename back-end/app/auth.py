@@ -40,11 +40,8 @@ class Token(BaseModel):
     token_type: str
 
 class TokenData(BaseModel):
-    id: uuid.UUID # This was correct
+    id: uuid.UUID
     
-    # --- THIS IS THE FIX ---
-    # This tells Pydantic to ignore extra fields like 'exp'
-    # which were causing the 401 validation error.
     class Config:
         extra = "ignore"
 
@@ -117,7 +114,6 @@ def get_current_user(token: Annotated[str, Depends(ouath2_bearer)], db: db_depen
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[AlGORITHM])
         
-        # This validation will now pass, because 'extra = "ignore"'
         token_data = TokenData(**payload)
 
     except (JWTError, Exception):

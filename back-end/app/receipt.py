@@ -4,14 +4,13 @@ from typing import Annotated, List, Optional
 import uuid
 from .auth import check_user_role, get_current_user
 from .database import get_db
-# Use ReceiptResponse, not InvoiceResponse for this file
 from .notification_service import dispatch_notification
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from starlette import status
 from . import db_model
-from . import notification_service # Added import for notification_service
+from . import notification_service
 
 router = APIRouter(prefix='/receipt', tags=['receipt'])
 
@@ -26,8 +25,6 @@ class UserBase(BaseModel):
     class Config:
         from_attributes = True
 
-# FIX: Removed r_id. The frontend cannot know this on creation.
-# This was the cause of the 422 error on POST.
 class ReceiptCreate(BaseModel):
     i_id: int
     amount: float
@@ -56,8 +53,6 @@ class ReceiptResponse(ReceiptBase):
 
 vat = Decimal('0.07')
 
-# This endpoint is not used in the "invoice approval" flow,
-# but it's here if you ever need to create a receipt manually.
 @router.post("/", response_model=ReceiptResponse, status_code=status.HTTP_201_CREATED)
 def create_receipt(receipt: ReceiptCreate, db: DBDependency, current_user: Annotated[db_model.User, Depends(check_user_role('User'))]):
     check_iid = db.query(db_model.Invoice).filter(db_model.Invoice.i_id == receipt.i_id).first()
@@ -74,7 +69,6 @@ def create_receipt(receipt: ReceiptCreate, db: DBDependency, current_user: Annot
         payment_date = receipt.payment_date,
         payment_method = receipt.payment_method,
         u_id = current_user.u_id,
-        # Generate a receipt number, e.g., from the invoice
         receipt_number = f"RC-{check_iid.invoice_number}" 
     )
     
@@ -99,7 +93,6 @@ def receipt_submit(receipt_id: int, db: DBDependency, current_user: Annotated[db
     if not receipt:
         raise HTTPException(status_code=404, detail="Receipt not found")
     
-    # This assumes your "invoice approval" flow creates receipts in 'Pending' state
     if receipt.status != 'Pending': 
         raise HTTPException(status_code=400, detail=f"Receipt cannot be submitted. Current status is '{receipt.status}'.")
     
@@ -107,18 +100,17 @@ def receipt_submit(receipt_id: int, db: DBDependency, current_user: Annotated[db
     subject = f"Approval Required: Receipt {receipt.receipt_number}"
 
     try:
-        receipt.status = 'Submitted' # Or whatever your 'submit' logic is
+        receipt.status = 'Submitted'
         db.commit()
         db.refresh(receipt)
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error during submission: {e}")
     
-    # You might want to notify admins here
     
     return receipt
 
-@router.put("/{receipt_id}/approve", response_model=ReceiptResponse) # Added response model
+@router.put("/{receipt_id}/approve", response_model=ReceiptResponse)
 def receipt_approve(receipt_id: int, status: str, db: DBDependency, current_user: Annotated[db_model.User, Depends(check_user_role('Admin'))]):
     
     receipt = db.query(db_model.Receipt).filter(db_model.Receipt.r_id == receipt_id).first()
@@ -126,7 +118,6 @@ def receipt_approve(receipt_id: int, status: str, db: DBDependency, current_user
     if not receipt:
         raise HTTPException(status_code=404, detail="Receipt not found")
 
-    # This should be 'Pending' based on your invoice flow
     if receipt.status != 'Pending':
         raise HTTPException(status_code=400, detail=f"Receipt cannot be actioned. Current status is '{receipt.status}'.")
         
@@ -162,44 +153,37 @@ def receipt_approve(receipt_id: int, status: str, db: DBDependency, current_user
             notification_service.dispatch_notification(db, target_user, message, subject)
         return receipt
     
-    # Added check for invalid status
+
     raise HTTPException(status_code=400, detail="Invalid status. Must be 'Approved' or 'Rejected'.")
 
-# --- NEW ENDPOINT 1 (For Admin) ---
-# This is what /app/receipts/page.tsx calls for Admins
 @router.get("/", response_model=List[ReceiptResponse], status_code=status.HTTP_200_OK)
 def get_all_receipts(db: DBDependency, current_user: Annotated[db_model.User, Depends(check_user_role('Admin'))]):
     
     receipts = db.query(db_model.Receipt).all()
     
-    # Convert Decimals to floats for the response
     for receipt in receipts:
         receipt.amount = float(receipt.amount)
         
     return receipts
 
-# --- NEW ENDPOINT 2 (For User) ---
-# This is what /app/receipts/page.tsx calls for Users
 @router.get("/me/", response_model=List[ReceiptResponse], status_code=status.HTTP_200_OK)
 def get_my_receipts(db: DBDependency, current_user: CurrentUser):
     
     receipts = db.query(db_model.Receipt).filter(db_model.Receipt.u_id == current_user.u_id).all()
     
-    # Convert Decimals to floats for the response
     for receipt in receipts:
         receipt.amount = float(receipt.amount)
 
     return receipts
 
-@router.get("/{receipt_id}", response_model=ReceiptResponse, status_code=status.HTTP_200_OK) # FIX: Was InvoiceResponse
-def get_receipt(receipt_id: int, db: DBDependency, current_user: CurrentUser): # Added current_user for security
+@router.get("/{receipt_id}", response_model=ReceiptResponse, status_code=status.HTTP_200_OK)
+def get_receipt(receipt_id: int, db: DBDependency, current_user: CurrentUser):
 
     receipt = db.query(db_model.Receipt).filter(db_model.Receipt.r_id == receipt_id).first()
     
     if not receipt:
         raise HTTPException(status_code=404, detail="Receipt not found")
     
-    # Security check: User can only see their own receipts, Admin can see all
     if current_user.role != 'Admin' and receipt.u_id != current_user.u_id:
         raise HTTPException(status_code=403, detail="Not authorized to view this receipt")
 
@@ -215,18 +199,15 @@ def get_receipt_by_number(receipt_number: str, db: DBDependency, current_user: C
     if not receipt:
         raise HTTPException(status_code=404, detail="Receipt not found")
     
-    # Security check: User can only see their own receipts, Admin can see all
     if current_user.role != 'Admin' and receipt.u_id != current_user.u_id:
         raise HTTPException(status_code=403, detail="Not authorized to view this receipt")
     
     approver_name = None
     if receipt.status == 'Approved':
-        # Find the log entry for this receipt being approved
-        # Assuming document_id for receipts is the r_id
         log_entry = db.query(db_model.Log)\
             .filter(db_model.Log.document_id == receipt.r_id, db_model.Log.action == 'Approved')\
             .order_by(db_model.Log.timestamp.desc())\
-            .first() # Get the most recent approval
+            .first()
         
         if log_entry and log_entry.actor:
             approver_name = log_entry.actor.name

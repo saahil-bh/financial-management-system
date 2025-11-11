@@ -196,7 +196,6 @@ def get_quotation(quotation_id: int, db: DBDependency, current_user: CurrentUser
     if not quotation:
         raise HTTPException(status_code=404, detail="Quotation not found")
     
-    # --- ADDED SECURITY CHECK ---
     if current_user.role != 'Admin' and quotation.u_id != current_user.u_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to view this quotation")
     
@@ -205,7 +204,6 @@ def get_quotation(quotation_id: int, db: DBDependency, current_user: CurrentUser
     
     return quotation
 
-# --- THIS IS THE FIXED ENDPOINT FOR GETTING BY NUMBER ---
 @router.get("/number/{quotation_number}", response_model=QuotationResponse, status_code=status.HTTP_200_OK)
 def get_quotation_by_number(quotation_number: str, db: DBDependency, current_user: CurrentUser):
 
@@ -214,18 +212,16 @@ def get_quotation_by_number(quotation_number: str, db: DBDependency, current_use
     if not quotation:
         raise HTTPException(status_code=404, detail="Quotation not found")
 
-    # --- ADDED SECURITY CHECK ---
     if current_user.role != 'Admin' and quotation.u_id != current_user.u_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to view this quotation")
     
     preparer_name = None
     if quotation.user:
-        preparer_name = quotation.user.name # Get preparer name from joined user
+        preparer_name = quotation.user.name
 
     approver_name = None
     approved_date = None
     if quotation.status == 'Approved':
-        # Find the log entry for this quotation being approved
         log_entry = db.query(db_model.Log)\
             .filter(db_model.Log.document_id == quotation.q_id, db_model.Log.action == 'Approved')\
             .order_by(db_model.Log.timestamp.desc())\
@@ -239,7 +235,6 @@ def get_quotation_by_number(quotation_number: str, db: DBDependency, current_use
     quotation.tax = float(quotation.tax)
     
     return quotation
-# --- END OF FIX ---
 
 @router.put("/{quotation_id}", response_model=QuotationResponse, status_code=status.HTTP_200_OK)
 def quotation_edit(quotation_id: int, quotation_update: QuotationUpdate, db: DBDependency, current_user: Annotated[db_model.User, Depends(check_user_role('User'))]):
@@ -277,11 +272,9 @@ def quotation_edit(quotation_id: int, quotation_update: QuotationUpdate, db: DBD
     quotation.tax = tax_amount
     
     try:
-      # Clear existing items associated with the quotation
       db.query(db_model.QuotationItem).filter(db_model.QuotationItem.q_id == quotation_id).delete(synchronize_session=False)
       db.flush() 
       
-      # Add new items from the update data
       for item_data in quotation_update.itemlist:
           db_item = db_model.QuotationItem(
               q_id = quotation.q_id,
@@ -309,10 +302,7 @@ def delete_quotation(quotation_id: int, db: DBDependency, current_user: Annotate
     
     if not quotation:
         raise HTTPException(status_code=404, detail="Quotation not found")
-
     
-    # --- LOGIC FIX HERE ---
-    # Was `if quotation.status is ['Approved']` which is always False
     if quotation.status == 'Approved': 
         raise HTTPException(
             status_code=400, detail=f"Quotation can not be delete. Current status is '{quotation.status}'."
@@ -367,8 +357,6 @@ def quotation_submit(quotation_id: int, db: DBDependency, current_user: Annotate
 
 @router.put("/{quotation_id}/approve")
 def quotation_approve(quotation_id: int, status: str, db: DBDependency, current_user: Annotated[db_model.User, Depends(check_user_role('Admin'))]):
-  # --- TYPO FIX HERE ---
-  # Was `db: DBDependCendency`
   
   quotation = db.query(db_model.Quotation).filter(db_model.Quotation.q_id == quotation_id).first()
   
