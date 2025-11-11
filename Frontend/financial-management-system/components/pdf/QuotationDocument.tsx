@@ -1,6 +1,4 @@
 "use client";
-
-import React from "react";
 import {
   Document,
   Page,
@@ -10,7 +8,6 @@ import {
   Image,
 } from "@react-pdf/renderer";
 
-// --- STYLES ---
 const styles = StyleSheet.create({
   page: {
     flexDirection: "column",
@@ -24,7 +21,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     marginBottom: 20,
     borderBottomWidth: 2,
-    borderBottomColor: "#10B981", // Green
+    borderBottomColor: "#10B981",
     paddingBottom: 10,
   },
   companyInfo: {
@@ -97,7 +94,6 @@ const styles = StyleSheet.create({
   totalsSection: {
     flexDirection: "row",
     justifyContent: "flex-end",
-    // Remove marginTop from here so it doesn't clash with the footer
   },
   totalsContainer: {
     width: "40%",
@@ -118,12 +114,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "bold",
   },
-  // --- UPDATED FOOTER STYLE ---
   footerNotes: {
-    position: 'absolute', // This is the main fix
-    bottom: 30, // 30 points from the bottom (same as page padding)
-    left: 30,   // 30 points from the left (same as page padding)
-    right: 30,  // 30 points from the right (same as page padding)
+    position: 'absolute',
+    bottom: 30,
+    left: 30,
+    right: 30,
     
     paddingTop: 10,
     borderTopWidth: 1,
@@ -149,7 +144,6 @@ const styles = StyleSheet.create({
   },
 });
 
-// --- PROP TYPES ---
 type QuotationData = {
   id: string;
   customerInfo: any;
@@ -157,7 +151,6 @@ type QuotationData = {
   validUntil: string;
   lineItems: any[];
   vatRate: number;
-  // --- NEW FIELDS ---
   preparer_name: string;
   approver_name: string;
   approved_date: string;
@@ -171,7 +164,6 @@ type CompanyInfo = {
   taxID: string;
 };
 
-// --- COMPONENT ---
 export function QuotationDocument({
   data,
   companyInfo,
@@ -179,7 +171,6 @@ export function QuotationDocument({
   data: QuotationData;
   companyInfo: CompanyInfo;
 }) {
-  // --- CALCULATIONS ---
   const subtotal = data.lineItems.reduce(
     (acc, item) => acc + item.qty * item.unitPrice,
     0
@@ -193,9 +184,7 @@ export function QuotationDocument({
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        {/* We wrap the main content in a View to allow the footer to be absolute */}
-        {/* This View will grow and can span multiple pages */}
-        <View style={{ paddingBottom: 150 }}> {/* Add padding to bottom to avoid overlap */}
+        <View style={{ paddingBottom: 150 }}> 
           
           {/* HEADER SECTION */}
           <View style={styles.header}>
@@ -287,7 +276,7 @@ export function QuotationDocument({
           </View>
         </View>
         
-        {/* --- NOTES & SIGNATURE SECTION (Now outside the main flow) --- */}
+        {/* --- NOTES & SIGNATURE SECTION --- */}
         <View style={styles.footerNotes}>
           <Text style={styles.notesTitle}>Notes:</Text>
           <Text>- This quotation is valid for 30 days from the issue date.</Text>

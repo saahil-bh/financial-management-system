@@ -1,11 +1,7 @@
 "use client";
-
 import React, { createContext, useState, useContext, useEffect } from "react";
 import { useRouter } from "next/navigation";
-// import api from "@/lib/api"; // <-- We are bypassing this for the test
 
-// --- Your User interface ---
-// (Make sure this matches your /users/me response)
 interface User {
   u_id: string; 
   name: string;
@@ -24,8 +20,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// --- Your API Base URL ---
-// Make sure this matches your running backend
 const API_URL = "http://localhost:8000";
 
 
@@ -36,18 +30,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  // On app load, check if we are already logged in
   useEffect(() => {
     const storedToken = localStorage.getItem("access_token");
     if (storedToken) {
       setToken(storedToken);
-      fetchUser(storedToken); // <-- Pass token to fetchUser
+      fetchUser(storedToken);
     }
   }, []);
 
   const fetchUser = async (currentToken: string) => {
     try {
-      // --- Use fetch for this call too ---
       const response = await fetch(`${API_URL}/users/me`, {
         headers: {
           "Authorization": `Bearer ${currentToken}`,
@@ -66,7 +58,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // --- **** THIS IS THE MODIFIED FUNCTION **** ---
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     setError(null);
@@ -76,7 +67,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     formData.append("password", password);
 
     try {
-      // --- We are using FETCH instead of api.post ---
       const response = await fetch(`${API_URL}/auth/login`, {
         method: "POST",
         headers: {
@@ -86,22 +76,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (!response.ok) {
-        // Handle failed login
         const errorData = await response.json();
         throw new Error(errorData.detail || "Invalid Email or password");
       }
 
-      // Login was successful
-      const data = await response.json(); // data = { access_token: "...", token_type: "..." }
+      const data = await response.json();
       
       localStorage.setItem("access_token", data.access_token);
       setToken(data.access_token);
       
-      // Now that we have the token, fetch the user's details
       await fetchUser(data.access_token);
 
     } catch (err: any) {
-      setError(err.message); // Use err.message since we threw a new Error
+      setError(err.message);
     } finally {
       setIsLoading(false);
     }
@@ -121,7 +108,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Custom hook to easily use the context
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {

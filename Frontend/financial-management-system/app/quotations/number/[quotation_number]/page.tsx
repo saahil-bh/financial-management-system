@@ -1,7 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { PDFViewer } from "@react-pdf/renderer";
 import { QuotationDocument } from "@/components/pdf/QuotationDocument";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -88,7 +87,6 @@ export default function QuotationPdfPage() {
   const router = useRouter();
   const { token } = useAuth();
   
-  // 1. Get the quotation_number from the URL
   const quotation_number = params.quotation_number as string;
 
   const [isClient, setIsClient] = useState(false);
@@ -101,10 +99,9 @@ export default function QuotationPdfPage() {
     setIsClient(true);
   }, []);
 
-  // 2. Fetch and Map Data
   useEffect(() => {
     if (!quotation_number || !token) {
-      return; // Wait for number and token
+      return;
     }
 
     const fetchAllData = async () => {
@@ -112,7 +109,6 @@ export default function QuotationPdfPage() {
       setError(null);
       
       try {
-        // 3. Fetch both endpoints concurrently
         const [quotationRes, companyRes] = await Promise.all([
           fetch(`${API_URL}/quotation/number/${quotation_number}`, {
             headers: { Authorization: `Bearer ${token}` },
@@ -133,12 +129,11 @@ export default function QuotationPdfPage() {
         const quotationData: ApiQuotationResponse = await quotationRes.json();
         const companyData: ApiCompanyProfile = await companyRes.json();
 
-        // --- 4. Map Quotation Data ---
         const subtotal = quotationData.total - quotationData.tax;
         const vatRate = subtotal > 0 ? quotationData.tax / subtotal : 0.07;
         const createdDate = new Date(quotationData.created_at);
         const validDate = new Date(createdDate);
-        validDate.setDate(createdDate.getDate() + 30); // 30-day validity
+        validDate.setDate(createdDate.getDate() + 30);
 
         const approvedDate = quotationData.approved_date 
           ? new Date(quotationData.approved_date) 
@@ -168,14 +163,12 @@ export default function QuotationPdfPage() {
         };
         setPdfData(mappedPdfData);
 
-        // --- 5. Map Company Data ---
         const mappedCompanyInfo: PdfCompanyInfo = {
           name: companyData.company_name,
           address: companyData.company_address,
           email: companyData.email,
           taxID: companyData.tax_id,
           phone: companyData.phone,
-          // @react-pdf cannot use local URLs. We must use an absolute URL.
           logoUrl: "/MyFinance.png", 
         };
         setCompanyInfo(mappedCompanyInfo);
@@ -188,9 +181,8 @@ export default function QuotationPdfPage() {
     };
 
     fetchAllData();
-  }, [quotation_number, token]); // Re-run if number or token changes
+  }, [quotation_number, token]);
 
-  // --- 6. Handle Loading/Error/Client States ---
   if (!isClient || isLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -216,7 +208,6 @@ export default function QuotationPdfPage() {
     );
   }
 
-  // --- 7. Render PDF ---
   return (
     <div className="flex flex-col h-screen w-full">
       <header className="flex items-center justify-between p-4 bg-primary text-primary-foreground">

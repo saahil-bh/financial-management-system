@@ -1,13 +1,11 @@
 "use client";
-
 import { Button } from "@/components/ui/button";
 import * as React from "react";
-import Link from "next/link"; // Import Link
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/context/AuthContext"; // Use standard alias
+import { useAuth } from "@/context/AuthContext";
 import axios from "axios";
 
-// --- API CLIENT WITH AUTH FIX ---
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000",
   headers: {
@@ -29,12 +27,11 @@ api.interceptors.request.use(
     return Promise.reject(error);
   }
 );
-// --- END OF FIX ---
 
-// Updated Receipt interface based on your database schema
+
 interface Receipt {
   r_id: number;
-  i_id: number; // We use this to find the invoice & quotation
+  i_id: number;
   u_id: string;
   receipt_number: string;
   status: string;
@@ -44,8 +41,6 @@ interface Receipt {
   created_at: string;
 }
 
-// --- NEW HELPER: InvoiceLinkButton ---
-// Fetches the Invoice Number from the i_id
 function InvoiceLinkButton({ i_id, token }: { i_id: number; token: string | null }) {
   const router = useRouter();
   const [isLoading, setIsLoading] = React.useState(false);
@@ -56,12 +51,10 @@ function InvoiceLinkButton({ i_id, token }: { i_id: number; token: string | null
     setIsLoading(true);
     setError(null);
     try {
-      // 1. Fetch the invoice by its ID
       const response = await api.get(`/invoice/${i_id}`);
       if (!response.data || !response.data.invoice_number) {
         throw new Error("Invoice number not found.");
       }
-      // 2. Navigate to the invoice details page
       router.push(`/invoices/number/${response.data.invoice_number}`);
     } catch (err: any) {
       setError(err.message || "Failed to find invoice.");
@@ -82,15 +75,12 @@ function InvoiceLinkButton({ i_id, token }: { i_id: number; token: string | null
   );
 }
 
-// --- NEW HELPER: QuotationLinkButton (for Receipts) ---
-// Fetches the Invoice, then the Quotation
 function QuotationLinkButton({ i_id, token }: { i_id: number; token: string | null }) {
   const router = useRouter();
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [q_id, setQ_id] = React.useState<number | null>(null);
 
-  // 1. Fetch the invoice on load to see if a q_id exists
   React.useEffect(() => {
     if (!token || !i_id) return;
 
@@ -116,12 +106,10 @@ function QuotationLinkButton({ i_id, token }: { i_id: number; token: string | nu
     setIsLoading(true);
     setError(null);
     try {
-      // 2. Now that we have the q_id, fetch the quotation
       const response = await api.get(`/quotation/${q_id}`);
       if (!response.data || !response.data.quotation_number) {
         throw new Error("Quotation number not found.");
       }
-      // 3. Navigate to the quotation details page
       router.push(`/quotations/number/${response.data.quotation_number}`);
     } catch (err: any) {
       setError(err.message || "Failed to find quotation.");
@@ -131,7 +119,6 @@ function QuotationLinkButton({ i_id, token }: { i_id: number; token: string | nu
     }
   };
 
-  // If no q_id was found, don't render the button
   if (!q_id) {
     return null;
   }
@@ -146,11 +133,9 @@ function QuotationLinkButton({ i_id, token }: { i_id: number; token: string | nu
     </Button>
   );
 }
-// --- END OF HELPERS ---
-
 
 export default function ReceiptsPage() {
-  const { user, token } = useAuth(); // Get token
+  const { user, token } = useAuth();
   const router = useRouter();
   const [receipts, setReceipts] = React.useState<Receipt[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -181,7 +166,7 @@ export default function ReceiptsPage() {
   ) => {
     try {
       await api.put(`/receipt/${receiptId}/approve?status=${newStatus}`);
-      fetchReceipts(); // Refresh the list
+      fetchReceipts();
     } catch (err) {
       console.error(`Failed to ${newStatus} receipt:`, err);
     }
@@ -203,7 +188,6 @@ export default function ReceiptsPage() {
         <h2 className="text-2xl font-bold text-primary-foreground">
           Welcome back, {user?.name || "User"}!
         </h2>
-        {/* Removed Logs button from User view, which was incorrect */}
       </div>
 
       <h3 className="text-3xl font-bold">
@@ -216,7 +200,7 @@ export default function ReceiptsPage() {
         ) : (
           <AdminReceiptsList
             receipts={receipts}
-            token={token} // Pass token
+            token={token}
             onUpdateStatus={handleUpdateStatus}
           />
         )}
@@ -225,7 +209,6 @@ export default function ReceiptsPage() {
   );
 }
 
-// --- Regular User ---
 function UserReceiptsList({ receipts, token }: { receipts: Receipt[], token: string | null }) {
   const pendingReceipts = receipts.filter((q) => q.status === "Pending");
   const approvedReceipts = receipts.filter((q) => q.status === "Approved");
@@ -272,8 +255,7 @@ function UserReceiptsList({ receipts, token }: { receipts: Receipt[], token: str
           <div className="space-x-2">
             <Link href={`/receipts/number/${q.receipt_number}`}>
               <Button variant="secondary">Details</Button>
-            </Link>
-            {/* --- FIX: ADDED HELPER BUTTONS --- */}
+            </Link>            
             <QuotationLinkButton i_id={q.i_id} token={token} />
             <InvoiceLinkButton i_id={q.i_id} token={token} />
           </div>
@@ -308,7 +290,7 @@ function UserReceiptsList({ receipts, token }: { receipts: Receipt[], token: str
 // --- Admins ---
 interface AdminListProps {
   receipts: Receipt[];
-  token: string | null; // Add token
+  token: string | null;
   onUpdateStatus: (receiptId: number, status: "Approved" | "Rejected") => void;
 }
 
@@ -371,7 +353,6 @@ function AdminReceiptsList({ receipts, token, onUpdateStatus }: AdminListProps) 
             <Link href={`/receipts/number/${q.receipt_number}`}>
               <Button variant="secondary">Details</Button>
             </Link>
-            {/* --- FIX: ADDED HELPER BUTTONS --- */}
             <QuotationLinkButton i_id={q.i_id} token={token} />
             <InvoiceLinkButton i_id={q.i_id} token={token} />
           </div>

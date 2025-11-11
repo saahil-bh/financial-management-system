@@ -1,9 +1,6 @@
 "use client";
-
-import React from "react";
 import * as ReactPDF from "@react-pdf/renderer";
 
-// --- STYLES ---
 const styles = ReactPDF.StyleSheet.create({
   page: {
     flexDirection: "column",
@@ -32,7 +29,7 @@ const styles = ReactPDF.StyleSheet.create({
     fontSize: 24,
     fontWeight: "bold",
     textAlign: "right",
-    marginBottom: 10, // Fix for overlap
+    marginBottom: 10,
   },
   customerInfo: {
     fontSize: 10,
@@ -87,7 +84,7 @@ const styles = ReactPDF.StyleSheet.create({
   totalsSection: {
     flexDirection: "row",
     justifyContent: "flex-end",
-    marginTop: 10, // Added a little space
+    marginTop: 10,
   },
   totalsContainer: {
     width: "40%",
@@ -108,9 +105,8 @@ const styles = ReactPDF.StyleSheet.create({
     fontSize: 12,
     fontWeight: "bold",
   },
-  // --- BANK DETAILS (Original Style) ---
   bankDetails: {
-    marginTop: 30, // In the main flow
+    marginTop: 30,
     paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: "#E5E7EB",
@@ -122,9 +118,8 @@ const styles = ReactPDF.StyleSheet.create({
     fontWeight: "bold",
     marginBottom: 5,
   },
-  // --- NEW FOOTER NOTES (In the main flow) ---
   footerNotes: {
-    marginTop: 20, // Follows bank details
+    marginTop: 20,
     paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: "#E5E7EB",
@@ -149,7 +144,6 @@ const styles = ReactPDF.StyleSheet.create({
   },
 });
 
-// --- PROP TYPES (UPDATED) ---
 type InvoiceData = {
   id: string;
   customerInfo: any;
@@ -177,7 +171,7 @@ type BankInfo = {
   swiftCode: string;
 };
 
-// --- COMPONENT ---
+
 export function InvoiceDocument({
   data,
   companyInfo,
@@ -187,7 +181,6 @@ export function InvoiceDocument({
   companyInfo: CompanyInfo;
   bankInfo: BankInfo;
 }) {
-  // --- CALCULATIONS ---
   const subtotal = data.lineItems.reduce(
     (acc, item) => acc + item.qty * item.unitPrice,
     0
@@ -201,10 +194,7 @@ export function InvoiceDocument({
   return (
     <ReactPDF.Document>
       <ReactPDF.Page size="A4" style={styles.page}>
-        {/* Main content View. NO absolute positioning. NO paddingBottom. */}
         <ReactPDF.View> 
-          
-          {/* HEADER SECTION */}
           <ReactPDF.View style={styles.header}>
             <ReactPDF.View style={styles.companyInfo}>
               <ReactPDF.Image src={companyInfo.logoUrl} style={styles.logoImage} />
@@ -293,7 +283,7 @@ export function InvoiceDocument({
             </ReactPDF.View>
           </ReactPDF.View>
         
-          {/* --- BANK DETAILS (IN NORMAL FLOW) --- */}
+          {/* --- BANK DETAILS --- */}
           <ReactPDF.View style={styles.bankDetails}>
             <ReactPDF.Text style={styles.bankTitle}>Payment Details:</ReactPDF.Text>
             <ReactPDF.Text>Bank: {bankInfo.bankName}</ReactPDF.Text>
@@ -303,7 +293,7 @@ export function InvoiceDocument({
             <ReactPDF.Text>Ref: {data.id}</ReactPDF.Text>
           </ReactPDF.View>
 
-          {/* --- NOTES & SIGNATURES (IN NORMAL FLOW) --- */}
+          {/* --- NOTES & SIGNATURES --- */}
           <ReactPDF.View style={styles.footerNotes}>
             <ReactPDF.Text style={styles.footerTitle}>Notes:</ReactPDF.Text>
             <ReactPDF.Text>- Please make payment before the due date.</ReactPDF.Text>
@@ -322,7 +312,6 @@ export function InvoiceDocument({
           </ReactPDF.View>
           
         </ReactPDF.View> 
-        {/* End of main content wrapper */}
       </ReactPDF.Page>
     </ReactPDF.Document>
   );

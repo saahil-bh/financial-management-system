@@ -19,10 +19,6 @@ interface Quotation {
   items: any[];
 }
 
-// --- NEW HELPER COMPONENT ---
-// This component fetches the invoice number from the q_id
-// and then navigates to the correct invoice details page.
-
 function InvoiceLinkButton({ q_id, token }: { q_id: number; token: string | null }) {
   const router = useRouter();
   const [isLoading, setIsLoading] = React.useState(false);
@@ -34,7 +30,6 @@ function InvoiceLinkButton({ q_id, token }: { q_id: number; token: string | null
     setIsLoading(true);
     setError(null);
     try {
-      // This is the new endpoint you just added to invoice.py
       const response = await fetch(`${API_URL}/invoice/by_quotation/${q_id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -49,7 +44,6 @@ function InvoiceLinkButton({ q_id, token }: { q_id: number; token: string | null
          throw new Error("Invoice number not found in response.");
       }
 
-      // Now that we have the invoice_number, we can navigate
       router.push(`/invoices/number/${data.invoice_number}`);
 
     } catch (err: any) {
@@ -66,7 +60,7 @@ function InvoiceLinkButton({ q_id, token }: { q_id: number; token: string | null
 
   return (
     <Button 
-      variant="secondary" // Use 'secondary' as requested
+      variant="secondary"
       onClick={handleClick}
       disabled={isLoading}
     >
@@ -74,8 +68,6 @@ function InvoiceLinkButton({ q_id, token }: { q_id: number; token: string | null
     </Button>
   );
 }
-// --- END OF HELPER COMPONENT ---
-
 
 export default function QuotationsPage() {
   const { user, token } = useAuth();
@@ -173,7 +165,6 @@ export default function QuotationsPage() {
   );
 }
 
-// --- UPDATED UserQuotationList ---
 interface UserListProps {
   quotations: Quotation[];
   token: string | null;
@@ -200,7 +191,7 @@ function UserQuotationList({ quotations, token, onUpdate }: UserListProps) {
         const err = await response.json();
         throw new Error(err.detail || "Failed to submit quotation.");
       }
-      onUpdate(); // Refresh the list
+      onUpdate();
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -224,7 +215,7 @@ function UserQuotationList({ quotations, token, onUpdate }: UserListProps) {
         const err = await response.json();
         throw new Error(err.detail || "Failed to delete quotation.");
       }
-      onUpdate(); // Refresh the list
+      onUpdate();
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -252,9 +243,9 @@ function UserQuotationList({ quotations, token, onUpdate }: UserListProps) {
           key={q.q_id}
           className="p-3 rounded-lg flex items-center justify-between border border-gray-700"
         >
-          <span>{q.quotation_number}</span>
-          <span>{q.customer_name}</span>
-          <div className="space-x-2">
+          <span className="w-1/4">{q.quotation_number}</span>
+          <span className="w-1/4 pl-70">{q.customer_name}</span>
+          <div className="space-x-2 ml-auto">
             
             <Link href={`/quotations/number/${q.quotation_number}`}>
               <Button variant="secondary" disabled={isUpdating === q.q_id}>
@@ -287,7 +278,7 @@ function UserQuotationList({ quotations, token, onUpdate }: UserListProps) {
         </div>
       ))}
 
-      {/* Submitted (Pending) */}
+      {/* Submitted */}
       {pendingQuotations.length > 0 && (
         <div className="bg-chart-4 p-3">
           <span className="font-bold text-lg text-warning-foreground">
@@ -300,9 +291,9 @@ function UserQuotationList({ quotations, token, onUpdate }: UserListProps) {
           key={q.q_id}
           className="p-3 rounded-lg flex items-center justify-between border border-gray-700"
         >
-          <span>{q.quotation_number}</span>
-          <span>{q.customer_name}</span>
-          <div className="space-x-2">
+          <span className="w-1/4">{q.quotation_number}</span>
+          <span className="w-1/4 pl-70">{q.customer_name}</span>
+          <div className="space-x-2 ml-auto">
 
             <Link href={`/quotations/number/${q.quotation_number}`}>
               <Button variant="secondary" disabled={isUpdating === q.q_id}>
@@ -340,15 +331,14 @@ function UserQuotationList({ quotations, token, onUpdate }: UserListProps) {
           key={q.q_id}
           className="p-3 rounded-lg flex items-center justify-between border border-gray-700"
         >
-          <span>{q.quotation_number}</span>
-          <span>{q.customer_name}</span>
-          <div className="space-x-2">
+          <span className="w-1/4">{q.quotation_number}</span>
+          <span className="w-1/4 pl-70">{q.customer_name}</span>
+          <div className="space-x-2 ml-auto">
 
             <Link href={`/quotations/number/${q.quotation_number}`}>
               <Button variant="secondary">Details</Button>
             </Link>
             
-            {/* --- THIS IS THE FIX --- */}
             <InvoiceLinkButton q_id={q.q_id} token={token} />
 
           </div>
@@ -368,9 +358,9 @@ function UserQuotationList({ quotations, token, onUpdate }: UserListProps) {
           key={q.q_id}
           className="p-3 rounded-lg flex items-center justify-between border border-gray-700"
         >
-          <span>{q.quotation_number}</span>
-          <span>{q.customer_name}</span>
-          <div className="space-x-2">
+          <span className="w-1/4">{q.quotation_number}</span>
+          <span className="w-1/4 pl-70">{q.customer_name}</span>
+          <div className="space-x-2 ml-auto">
 
             <Link href={`/quotations/number/${q.quotation_number}`}>
               <Button variant="secondary">Details</Button>
@@ -390,7 +380,6 @@ function UserQuotationList({ quotations, token, onUpdate }: UserListProps) {
   );
 }
 
-// --- UPDATED AdminQuotationList ---
 interface AdminListProps {
   quotations: Quotation[];
   token: string | null;
@@ -444,7 +433,7 @@ function AdminQuotationList({ quotations, token, onUpdate }: AdminListProps) {
     <>
       {error && <p className="text-red-500 text-center">{error}</p>}
       
-      {/* Submitted (Pending) */}
+      {/* Submitted */}
       {pendingQuotations.length > 0 && (
         <div className="bg-chart-4 p-3">
           <span className="font-bold text-lg text-warning-foreground">
@@ -457,9 +446,9 @@ function AdminQuotationList({ quotations, token, onUpdate }: AdminListProps) {
           key={q.q_id}
           className="p-3 rounded-lg flex items-center justify-between border border-gray-700"
         >
-          <span>{q.quotation_number}</span>
-          <span>{q.customer_name}</span>
-          <div className="space-x-2">
+          <span className="w-1/4">{q.quotation_number}</span>
+          <span className="w-1/4 pl-70">{q.customer_name}</span>
+          <div className="space-x-2 ml-auto">
 
             <Link href={`/quotations/number/${q.quotation_number}`}>
               <Button variant="secondary" disabled={isUpdating === q.q_id}>
@@ -498,15 +487,14 @@ function AdminQuotationList({ quotations, token, onUpdate }: AdminListProps) {
           key={q.q_id}
           className="p-3 rounded-lg flex items-center justify-between border border-gray-700"
         >
-          <span>{q.quotation_number}</span>
-          <span>{q.customer_name}</span>
-          <div className="space-x-2">
+          <span className="w-1/4">{q.quotation_number}</span>
+          <span className="w-1/4 pl-70">{q.customer_name}</span>
+          <div className="space-x-2 ml-auto">
 
             <Link href={`/quotations/number/${q.quotation_number}`}>
               <Button variant="secondary">Details</Button>
             </Link>
             
-            {/* --- THIS IS THE FIX --- */}
             <InvoiceLinkButton q_id={q.q_id} token={token} />
 
           </div>
@@ -526,9 +514,9 @@ function AdminQuotationList({ quotations, token, onUpdate }: AdminListProps) {
           key={q.q_id}
           className="p-3 rounded-lg flex items-center justify-between border border-gray-700"
         >
-          <span>{q.quotation_number}</span>
-          <span>{q.customer_name}</span>
-          <div className="space-x-2">
+          <span className="w-1/4">{q.quotation_number}</span>
+          <span className="w-1/4 pl-70">{q.customer_name}</span>
+          <div className="space-x-2 ml-auto">
 
             <Link href={`/quotations/number/${q.quotation_number}`}>
               <Button variant="secondary">Details</Button>

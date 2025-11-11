@@ -1,19 +1,14 @@
 "use client";
-
 import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { PDFViewer } from "@react-pdf/renderer";
-import { ReceiptDocument } from "@/components/pdf/ReceiptDocument"; // Use alias
-import { useAuth } from "@/context/AuthContext"; // Use alias
+import { ReceiptDocument } from "@/components/pdf/ReceiptDocument";
+import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import dynamic from "next/dynamic";
 import { ArrowLeft } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
-// --- Helper Interfaces ---
-
-// 1. Matches GET /company-profile
 interface ApiCompanyProfile {
   company_name: string;
   company_address: string;
@@ -22,7 +17,6 @@ interface ApiCompanyProfile {
   email: string;
 }
 
-// 2. Matches GET /receipt/number/{receipt_number}
 interface ApiReceiptResponse {
   r_id: number;
   i_id: number;
@@ -31,37 +25,29 @@ interface ApiReceiptResponse {
   amount: number;
   payment_date: string;
   approver_name: string | null;
-  // ... other fields
 }
 
-// 3. Matches GET /invoice/{invoice_id} (we only need a subset)
 interface ApiInvoiceResponse {
   invoice_number: string;
   customer_name: string;
   customer_address: string;
-  // ... other fields
 }
 
-// 4. Matches props for <ReceiptDocument> (Company Info)
-// This must match what ReceiptDocument expects
 interface PdfCompanyInfo {
   company_name: string;
   company_address: string;
   email: string;
   phone: string;
-  logoUrl: string; // The placeholder logo
+  logoUrl: string;
   tax_id: string;
 }
 
-// 5. Matches props for <ReceiptDocument> (Receipt Data)
-// This must match what ReceiptDocument expects
 interface PdfData {
   receipt_number: string;
   payment_date: string;
   amount: number;
   status: string;
   approver_name: string | null;
-  // Nested invoice/customer info
   invoice: {
     invoice_number: string;
     customer_name: string;
@@ -69,8 +55,6 @@ interface PdfData {
   };
 }
 
-// --- Dynamic PDFViewer ---
-// Prevents SSR issues, as seen in your template
 const DynamicPDFViewer = dynamic(
   () => import("@react-pdf/renderer").then((mod) => mod.PDFViewer),
   { ssr: false }
@@ -79,7 +63,7 @@ const DynamicPDFViewer = dynamic(
 export default function ReceiptPdfPage() {
   const params = useParams();
   const router = useRouter();
-  const { token } = useAuth(); // Get token from AuthContext
+  const { token } = useAuth();
 
   const receipt_number = params.receipt_number as string;
 
@@ -93,10 +77,9 @@ export default function ReceiptPdfPage() {
     setIsClient(true);
   }, []);
 
-  // Fetch and Map Data
   useEffect(() => {
     if (!receipt_number || !token) {
-      return; // Wait for number and token
+      return;
     }
 
     const fetchAllData = async () => {
@@ -104,7 +87,6 @@ export default function ReceiptPdfPage() {
       setError(null);
 
       try {
-        // Fetch company profile and receipt details
         const [companyRes, receiptRes] = await Promise.all([
           fetch(`${API_URL}/company-profile`, {
             headers: { Authorization: `Bearer ${token}` },
@@ -125,7 +107,6 @@ export default function ReceiptPdfPage() {
         const companyData: ApiCompanyProfile = await companyRes.json();
         const receiptData: ApiReceiptResponse = await receiptRes.json();
 
-        // --- Now fetch the related invoice ---
         const invoiceRes = await fetch(`${API_URL}/invoice/${receiptData.i_id}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -134,19 +115,16 @@ export default function ReceiptPdfPage() {
         }
         const invoiceData: ApiInvoiceResponse = await invoiceRes.json();
 
-        // --- Map Company Data (using placeholder logo) ---
         const mappedCompanyInfo: PdfCompanyInfo = {
           company_name: companyData.company_name,
           company_address: companyData.company_address,
           email: companyData.email,
           tax_id: companyData.tax_id,
           phone: companyData.phone,
-          // --- USING YOUR EXACT LOGO METHOD ---
           logoUrl: "/MyFinance.png",
         };
         setCompanyInfo(mappedCompanyInfo);
 
-        // --- Map Receipt Data ---
         const mappedPdfData: PdfData = {
           receipt_number: receiptData.receipt_number,
           payment_date: receiptData.payment_date,
@@ -169,9 +147,8 @@ export default function ReceiptPdfPage() {
     };
 
     fetchAllData();
-  }, [receipt_number, token]); // Re-run if number or token changes
+  }, [receipt_number, token]);
 
-  // --- Handle Loading/Error/Client States ---
   if (!isClient || isLoading) {
     return (
       <div className="flex flex-col h-screen w-full">
@@ -211,8 +188,6 @@ export default function ReceiptPdfPage() {
     );
   }
 
-  // --- Render PDF ---
-  // This includes the green header bar you wanted
   return (
     <div className="flex flex-col h-screen w-full">
       <header className="flex items-center justify-between p-4 bg-primary text-primary-foreground">

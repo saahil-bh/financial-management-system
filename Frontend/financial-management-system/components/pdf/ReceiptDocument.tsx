@@ -1,6 +1,4 @@
 "use client";
-
-import React from "react";
 import {
   Document,
   Page,
@@ -11,8 +9,6 @@ import {
   Font,
 } from "@react-pdf/renderer";
 
-// --- STYLES ---
-// Using a simpler, cleaner style based on your template
 const styles = StyleSheet.create({
   page: {
     flexDirection: "column",
@@ -20,7 +16,6 @@ const styles = StyleSheet.create({
     padding: 35,
     fontFamily: "Helvetica",
   },
-  // --- Header ---
   headerContainer: {
     flexDirection: "column",
     alignItems: "center",
@@ -40,7 +35,6 @@ const styles = StyleSheet.create({
     fontSize: 9,
     color: "#4B5563",
   },
-  // --- Title & Info ---
   titleContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -57,13 +51,11 @@ const styles = StyleSheet.create({
     fontSize: 10,
     textAlign: "right",
   },
-  // --- Customer Info ---
   customerInfo: {
     fontSize: 10,
     marginTop: 15,
     lineHeight: 1.4,
   },
-  // --- Payment Details ---
   paymentDetails: {
     marginTop: 30,
     padding: 15,
@@ -89,7 +81,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#000",
     marginRight: 5,
-    // "Checked"
     backgroundColor: "#000",
   },
   checkboxUnchecked: {
@@ -99,7 +90,6 @@ const styles = StyleSheet.create({
     borderColor: "#000",
     marginRight: 5,
   },
-  // --- Footer ---
   footer: {
     position: "absolute",
     bottom: 35,
@@ -116,15 +106,12 @@ const styles = StyleSheet.create({
   },
 });
 
-// --- PROP TYPES ---
-// Simplified types for the receipt
 export type ReceiptData = {
   receipt_number: string;
-  payment_date: string; // Assumes ISO string
+  payment_date: string;
   amount: number;
   status: string;
   approver_name: string | null;
-  // Related invoice/customer info
   invoice: {
     invoice_number: string;
     customer_name: string;
@@ -137,11 +124,10 @@ type CompanyInfo = {
   company_address: string;
   email: string;
   phone: string;
-  logoUrl: string; // The base64 logo
+  logoUrl: string;
   tax_id: string;
 };
 
-// --- HELPER ---
 const formatDate = (dateString: string) => {
   if (!dateString) return "N/A";
   try {
@@ -156,7 +142,6 @@ const formatDate = (dateString: string) => {
   }
 };
 
-// --- COMPONENT ---
 export function ReceiptDocument({
   data,
   companyInfo,
@@ -166,7 +151,7 @@ export function ReceiptDocument({
 }) {
   const receivedBy =
     data.status === "Approved"
-      ? data.approver_name || "Admin" // Fallback if name is null
+      ? data.approver_name || "Admin"
       : "Not Approved Yet";
 
   return (

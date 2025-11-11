@@ -2,23 +2,19 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Plus, Trash2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter, useParams } from "next/navigation";
 
-// Define the shape of a line item
 type LineItem = {
-  id: number | string; // Can be DB ID (number) or temp ID (string)
+  id: number | string;
   description: string;
-  quantity: number; // Match backend model
-  unit_price: number; // Match backend model
+  quantity: number;
+  unit_price: number;
 };
 
-// VAT Rate
-const VAT_RATE = 0.07; // 7%
+const VAT_RATE = 0.07;
 
-// Your backend API URL
 const API_URL = "http://localhost:8000";
 
 export default function EditQuotationPage() {
@@ -26,11 +22,9 @@ export default function EditQuotationPage() {
   const params = useParams();
   const { token } = useAuth();
 
-  // 1. Get the quotation_number from the URL
   const quotation_number = params.quotation_number as string;
 
-  // --- State for all form fields ---
-  const [databaseId, setDatabaseId] = React.useState<number | null>(null); // To store the q_id
+  const [databaseId, setDatabaseId] = React.useState<number | null>(null);
   const [lineItems, setLineItems] = React.useState<LineItem[]>([]);
   const [quotationNumber, setQuotationNumber] = React.useState("");
   const [customerName, setCustomerName] = React.useState("");
@@ -40,7 +34,6 @@ export default function EditQuotationPage() {
   const [isFetching, setIsFetching] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
-  // --- 2. Fetch existing quotation data on load ---
   React.useEffect(() => {
     if (!quotation_number || !token) return;
 
@@ -48,7 +41,6 @@ export default function EditQuotationPage() {
       setIsFetching(true);
       setError(null);
       try {
-        // 3. Fetch using the new endpoint
         const response = await fetch(`${API_URL}/quotation/number/${quotation_number}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -57,8 +49,7 @@ export default function EditQuotationPage() {
         }
         const data = await response.json();
 
-        // --- 4. Pre-populate the form with fetched data ---
-        setDatabaseId(data.q_id); // <-- IMPORTANT: Store the integer ID
+        setDatabaseId(data.q_id);
         setQuotationNumber(data.quotation_number);
         setCustomerName(data.customer_name);
         setCustomerAddress(data.customer_address);
@@ -80,9 +71,8 @@ export default function EditQuotationPage() {
     };
 
     fetchQuotation();
-  }, [quotation_number, token]); // Re-run if number or token changes
+  }, [quotation_number, token]);
 
-  // --- Line Item Handlers ---
   const handleLineItemChange = (
     id: number | string,
     field: keyof LineItem,
@@ -115,7 +105,6 @@ export default function EditQuotationPage() {
     setLineItems((prevItems) => prevItems.filter((item) => item.id !== id));
   };
 
-  // --- Calculations ---
   const subtotal = React.useMemo(() => {
     return lineItems.reduce((acc, item) => acc + item.quantity * item.unit_price, 0);
   }, [lineItems]);
@@ -123,13 +112,11 @@ export default function EditQuotationPage() {
   const vatAmount = subtotal * VAT_RATE;
   const grandTotal = subtotal + vatAmount;
 
-  // --- 5. Handle the UPDATE (PUT) request ---
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
 
-    // 6. Check if we stored the database ID
     if (!token || !databaseId) {
       setError("You are not logged in or the quotation ID is missing.");
       setIsLoading(false);
@@ -150,7 +137,6 @@ export default function EditQuotationPage() {
     };
 
     try {
-      // 7. Call the PUT endpoint using the numeric databaseId
       const response = await fetch(`${API_URL}/quotation/${databaseId}`, {
         method: "PUT",
         headers: {
@@ -174,7 +160,6 @@ export default function EditQuotationPage() {
     }
   };
 
-  // --- Loading/Error states ---
   if (isFetching) {
     return (
       <div className="flex justify-center items-center min-h-[50vh]">
@@ -192,7 +177,6 @@ export default function EditQuotationPage() {
     );
   }
 
-  // --- The Form ---
   return (
     <form
       onSubmit={handleUpdate}
@@ -210,7 +194,7 @@ export default function EditQuotationPage() {
             placeholder="Quotation ID"
             className="bg-gray-200 text-black border-primary border-2 rounded-none"
             value={quotationNumber}
-            disabled // The Quotation Number (Q-2025...) cannot be edited
+            disabled
           />
           <Input
             placeholder="Customer Name"
@@ -321,7 +305,6 @@ export default function EditQuotationPage() {
         </div>
       </section>
 
-      {/* Show error message if it exists */}
       {error && (
         <p className="text-red-500 text-sm text-center font-bold">{error}</p>
       )}

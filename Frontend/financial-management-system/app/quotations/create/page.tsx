@@ -2,13 +2,10 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { DatePicker } from "@/components/ui/date-picker";
 import { Plus, Trash2, Upload } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 
-// Define the shape of a line item
 type LineItem = {
   id: number;
   description: string;
@@ -16,16 +13,14 @@ type LineItem = {
   unitPrice: number;
 };
 
-// VAT Rate
-const VAT_RATE = 0.07; // 7%
+const VAT_RATE = 0.07;
 
-// Your backend API URL
 const API_URL = "http://localhost:8000";
 
-// --- Helper Function to generate date string ---
+
 const getFormattedDate = (date: Date): string => {
   const yyyy = date.getFullYear();
-  const mm = String(date.getMonth() + 1).padStart(2, "0"); // Months are 0-indexed
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
   const dd = String(date.getDate()).padStart(2, "0");
   return `${yyyy}${mm}${dd}`;
 };
@@ -34,30 +29,24 @@ export default function CreateQuotationPage() {
   const router = useRouter();
   const { token } = useAuth();
 
-  // State for line items
   const [lineItems, setLineItems] = React.useState<LineItem[]>([
     { id: 1, description: "", qty: 1, unitPrice: 0 },
   ]);
 
-  // --- Add state for the new Quotation ID ---
   const [quotationId, setQuotationId] = React.useState("");
 
-  // 4. Add state for customer fields
   const [customerName, setCustomerName] = React.useState("");
   const [customerAddress, setCustomerAddress] = React.useState("");
   const [customerEmail, setCustomerEmail] = React.useState("");
 
-  // 5. Add loading and error states
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  // --- Auto-generate a suggested Quotation Number on load ---
   React.useEffect(() => {
     const suggestedId = `Q-${getFormattedDate(new Date())}-`;
     setQuotationId(suggestedId);
-  }, []); // Empty array means this runs once on mount
+  }, []);
 
-  // --- Line Item Handlers (Unchanged) ---
   const handleLineItemChange = (
     id: number,
     field: keyof LineItem,
@@ -90,7 +79,6 @@ export default function CreateQuotationPage() {
     setLineItems((prevItems) => prevItems.filter((item) => item.id !== id));
   };
 
-  // --- Calculations (Unchanged) ---
   const subtotal = React.useMemo(() => {
     return lineItems.reduce((acc, item) => acc + item.qty * item.unitPrice, 0);
   }, [lineItems]);
@@ -98,8 +86,7 @@ export default function CreateQuotationPage() {
   const vatAmount = subtotal * VAT_RATE;
   const grandTotal = subtotal + vatAmount;
 
-  // --- 1. NEW GENERIC FUNCTION ---
-  // This function will be called by both "Save" and "Submit"
+
   const handleCreateQuotation = async (status: "Draft" | "Submitted") => {
     setIsLoading(true);
     setError(null);
@@ -110,21 +97,19 @@ export default function CreateQuotationPage() {
       return;
     }
 
-    // Format the line items to match the backend
     const formattedItems = lineItems.map(({ description, qty, unitPrice }) => ({
       description: description,
       quantity: qty,
       unit_price: unitPrice,
     }));
 
-    // Build the payload with the correct status
     const payload = {
       quotation_number: quotationId,
       customer_name: customerName,
       customer_address: customerAddress,
       customer_email: customerEmail,
       itemlist: formattedItems,
-      status: status, // <-- Send the correct status
+      status: status,
     };
 
     try {
@@ -143,7 +128,7 @@ export default function CreateQuotationPage() {
       }
 
       alert(`Quotation saved as ${status}!`);
-      router.push("/quotations"); // Redirect on success
+      router.push("/quotations");
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -151,19 +136,16 @@ export default function CreateQuotationPage() {
     }
   };
 
-  // --- 2. handleSubmit now calls the generic function with "Submitted" ---
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     handleCreateQuotation("Submitted");
   };
 
-  // --- 3. handleSaveDraft calls the generic function with "Draft" ---
   const handleSaveDraft = () => {
     handleCreateQuotation("Draft");
   };
 
   return (
-    // 4. Hook up the form's onSubmit
     <form
       onSubmit={handleSubmit}
       className="max-w-4xl mx-auto p-6 space-y-8 border-2 border-primary rounded-2xl shadow-lg shadow-primary/20"
@@ -206,7 +188,7 @@ export default function CreateQuotationPage() {
         </div>
       </section>
 
-      {/* --- Quotation Line Items (Unchanged) --- */}
+      {/* --- Quotation Line Items --- */}
       <section className="space-y-4">
         <div className="flex justify-between items-center">
           <h3 className="text-xl font-semibold">Quotation:</h3>
@@ -270,7 +252,7 @@ export default function CreateQuotationPage() {
         </div>
       </section>
 
-      {/* --- Totals Section (Unchanged) --- */}
+      {/* --- Totals Section --- */}
       <section className="flex justify-end">
         <div className="w-full max-w-sm space-y-2">
           <div className="flex justify-between">
@@ -290,24 +272,22 @@ export default function CreateQuotationPage() {
         </div>
       </section>
 
-      {/* Show error message if it exists */}
       {error && (
         <p className="text-red-500 text-sm text-center font-bold">{error}</p>
       )}
 
-      {/* --- 5. Hook up the new handleSaveDraft function --- */}
       <div className="flex justify-end gap-4">
         <Button
-          type="button" // <-- MUST be type="button"
+          type="button"
           variant="secondary"
           className="font-bold"
           disabled={isLoading}
-          onClick={handleSaveDraft} // <-- Add onClick
+          onClick={handleSaveDraft}
         >
           Save (Draft)
         </Button>
         <Button
-          type="submit" // <-- This triggers the form's onSubmit
+          type="submit"
           variant="default"
           className="font-bold"
           disabled={isLoading}

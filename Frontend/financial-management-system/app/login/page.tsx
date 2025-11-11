@@ -1,5 +1,3 @@
-// /app/login/page.tsx
-
 "use client";
 import Image from "next/image";
 import MyFinance from "@/components/svgs/MyFinance.svg";
