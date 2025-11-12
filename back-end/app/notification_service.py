@@ -83,17 +83,18 @@ def dispatch_notification(
             db.add(db_notification)
 
     # 2. Always send via Email (as a reliable fallback)
-    # if _send_email_notification(user.email, subject, message):
-    #     # Log to DB as 'Email' type
-    #     db_notification = db_model.Notification(
-    #         u_id=user.u_id,
-    #         message=message,
-    #         type='Email'
-    #     )
-    #     db.add(db_notification)
+    if _send_email_notification(user.email, subject, message):
+        # Log to DB as 'Email' type
+        db_notification = db_model.Notification(
+            u_id=user.u_id,
+            message=message,
+            type='Email'
+        )
+        db.add(db_notification)
 
     try:
         db.commit()
     except Exception as e:
         db.rollback()
+
         print(f"Error logging notification to database: {e}")
